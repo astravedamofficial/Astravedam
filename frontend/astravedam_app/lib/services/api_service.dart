@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 import '../models/birth_data.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:3000';
+    static const String baseUrl = 'https://astravedam-backend.onrender.com';
+    // static const String baseUrl = 'http://localhost:3000';
 
   static Future<Map<String, dynamic>> calculateChart(BirthData birthData) async {
     final response = await http.post(
