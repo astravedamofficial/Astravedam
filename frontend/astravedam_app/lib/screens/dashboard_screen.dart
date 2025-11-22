@@ -458,96 +458,101 @@ class DashboardScreen extends StatelessWidget {
   }
 
   void _showKundaliDetails(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Your Kundali Details'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Lagna: ${userChart['lagna']}'),
-                const SizedBox(height: 8),
-                Text('Sun: ${userChart['planets']['sun']['rashi']}'),
-                Text('Moon: ${userChart['planets']['moon']['rashi']}'),
-                Text('Mars: ${userChart['planets']['mars']['rashi']}'),
-                const SizedBox(height: 12),
-                Text(
-                  userChart['summary'],
-                  style: TextStyle(
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey[600],
-                  ),
+  // ✅ SAFE data access with null checks
+  final chartData = userChart['chart'] ?? userChart;
+  
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Your Kundali Details'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Lagna: ${chartData['lagna'] ?? 'Not available'}'),
+              const SizedBox(height: 8),
+              Text('Sun: ${chartData['planets']?['sun']?['rashi'] ?? 'Not available'}'),
+              Text('Moon: ${chartData['planets']?['moon']?['rashi'] ?? 'Not available'}'),
+              Text('Mars: ${chartData['planets']?['mars']?['rashi'] ?? 'Not available'}'),
+              const SizedBox(height: 12),
+              Text(
+                chartData['summary'] ?? 'No summary available',
+                style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey[600],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      );
+    },
+  );
+}
 
   void _showProfileDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Your Profile'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const ListTile(
-                  leading: Icon(Icons.person),
-                  title: Text('Akash'),
-                  subtitle: Text('Registered User'),
+  final chartData = userChart['chart'] ?? userChart;
+  
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Your Profile'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const ListTile(
+                leading: Icon(Icons.person),
+                title: Text('Akash'),
+                subtitle: Text('Registered User'),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Birth Details:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const Text('Date: 22 November 2025'),
+              const Text('Time: 08:10 AM'),
+              const Text('Place: Vita'),
+              const SizedBox(height: 16),
+              const Text(
+                'Kundali Summary:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text('Lagna: ${chartData['lagna'] ?? 'Not available'}'),
+              Text('Sun Sign: ${chartData['planets']?['sun']?['rashi'] ?? 'Not available'}'),
+              Text('Moon Sign: ${chartData['planets']?['moon']?['rashi'] ?? 'Not available'}'),
+              const SizedBox(height: 16),
+              Text(
+                chartData['summary'] ?? 'No summary available',
+                style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey[600],
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Birth Details:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const Text('Date: 22 November 2025'),
-                const Text('Time: 08:10 AM'),
-                const Text('Place: Vita'),
-                const SizedBox(height: 16),
-                const Text(
-                  'Kundali Summary:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text('Lagna: ${userChart['lagna']}'),
-                Text('Sun Sign: ${userChart['planets']['sun']['rashi']}'),
-                Text('Moon Sign: ${userChart['planets']['moon']['rashi']}'),
-                const SizedBox(height: 16),
-                Text(
-                  userChart['summary'],
-                  style: TextStyle(
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      );
+    },
+  );
+}
 
   void _showCreditRequiredDialog(BuildContext context, String feature, int credits) {
     showDialog(

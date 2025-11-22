@@ -3,37 +3,26 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 
-// ✅ FIX: Import UserChart model correctly
+// Import UserChart model
 const UserChart = require('./models/UserChart');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*',
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// Connect to MongoDB with timeout options
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 30000,
-  socketTimeoutMS: 45000,
-})
-  .then(() => console.log('✅ Connected to MongoDB Atlas'))
-  .catch(err => {
-    console.error('❌ MongoDB connection error:', err);
-    process.exit(1);
-  });
-
-// Error handlers for production
-process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught Exception:', err);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (err) => {
-  console.error('❌ Unhandled Rejection:', err);
+// ✅ FIXED: Updated MongoDB connection (remove deprecated options)
+mongoose.connect(process.env.MONGODB_URI)
+.then(() => console.log('✅ Connected to MongoDB Atlas'))
+.catch(err => {
+  console.error('❌ MongoDB connection error:', err);
   process.exit(1);
 });
 
@@ -86,7 +75,7 @@ app.post('/api/calculate-chart', async (req, res) => {
     
     // Validate required fields
     if (!birthData.date || !birthData.time || !birthData.location) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Missing required fields: date, time, location' });
     }
     
     // Calculate birth chart
@@ -112,9 +101,13 @@ app.post('/api/calculate-chart', async (req, res) => {
       chartId: savedChart._id,
       message: 'Birth chart calculated and saved successfully'
     });
+    
   } catch (error) {
-    console.error('❌ Error:', error);
-    res.status(500).json({ error: 'Internal server error: ' + error.message });
+    console.error('❌ Error in /api/calculate-chart:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
   }
 });
 
@@ -124,7 +117,8 @@ app.get('/api/health', (req, res) => {
     status: '🚀 Astravedam Backend is running!', 
     timestamp: new Date().toISOString(),
     version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
   });
 });
 
@@ -134,5 +128,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📍 Render URL: https://astravedam.onrender.com`);
   console.log(`📍 Port: ${PORT}`);
   console.log(`❤️  Health: /api/health`);
-  console.log(`📊 Chart API: POST /api/calculate-chart\n`);
+  console.log(`📊 Chart API: POST /api/calculate-chart`);
+  console.log(`🌐 CORS: ${process.env.CORS_ORIGIN || '*'}`);
+  console.log(`🗄️  Database: ${mongoose.connection.readyState === 1 ? '✅ Connected' : '❌ Disconnected'}\n`);
 });
