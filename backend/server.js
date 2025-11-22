@@ -1,9 +1,19 @@
+require('dotenv').config();
+const mongoose = require('mongoose');
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('✅ Connected to MongoDB Atlas'))
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
+  });
+  const UserChart = require('./models/UserChart');
 const express = require('express');
 const cors = require('cors');
 
 const app = express();
 const PORT = 3000;
-
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -49,8 +59,7 @@ function calculateBirthChart(birthData) {
   return chart;
 }
 
-// Routes
-app.post('/api/calculate-chart', (req, res) => {
+app.post('/api/calculate-chart', async (req, res) => {
   try {
     const birthData = req.body;
     console.log('📊 Received birth data:', birthData);
@@ -62,17 +71,41 @@ app.post('/api/calculate-chart', (req, res) => {
     
     // Calculate birth chart
     const chart = calculateBirthChart(birthData);
+    console.log('🧮 Chart calculated:', chart);
     
-    console.log('✅ Chart calculated successfully');
+    // Create document to save
+    const userChartData = {
+      name: birthData.name || 'User',
+      birthDate: new Date(birthData.date),
+      birthTime: birthData.time,
+      location: birthData.location,
+      latitude: birthData.latitude || 0,
+      longitude: birthData.longitude || 0,
+      timezone: birthData.timezone || 'UTC',
+      chartData: chart
+    };
+    
+    console.log('💾 Attempting to save:', userChartData);
+    
+    // Save to database
+    const userChart = new UserChart(userChartData);
+    const savedChart = await userChart.save();
+    
+    console.log('✅ SUCCESSFULLY SAVED TO MONGODB:');
+    console.log('   Database:', mongoose.connection.name);
+    console.log('   Collection:', userChart.collection.name);
+    console.log('   Document ID:', savedChart._id);
+    console.log('   Saved document:', savedChart);
     
     res.json({
       success: true,
       chart: chart,
-      message: 'Birth chart calculated successfully'
+      chartId: savedChart._id,
+      message: 'Birth chart calculated and saved successfully'
     });
   } catch (error) {
-    console.error('❌ Error calculating chart:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('❌ SAVE ERROR:', error);
+    res.status(500).json({ error: 'Internal server error: ' + error.message });
   }
 });
 
