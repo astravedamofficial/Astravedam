@@ -10,16 +10,57 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 // Middleware
-// With this:
-app.use(cors({
-    origin: ['http://localhost:49934', 'http://localhost:3000', 'https://astravedam.onrender.com'],
-    methods: ['GET', 'POST', 'OPTIONS'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization']
-  }));
 app.use(express.json({ limit: '10mb' }));
+// Middleware - PUT THIS RIGHT AFTER app.use(express.json())
+app.use(cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl)
+      if (!origin) return callback(null, true);
+      
+      // Allow all localhost ports
+      if (origin.startsWith('http://localhost:')) {
+        return callback(null, true);
+      }
+      
+      // Allow your Render URL
+      if (origin === 'https://astravedam.onrender.com') {
+        return callback(null, true);
+      }
+      
+      // Allow any origin for now (remove in production)
+      return callback(null, true); // TEMPORARY - allows all origins
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    exposedHeaders: ['Content-Length', 'X-Kuma-Revision'],
+    maxAge: 600, // 10 minutes
+    preflightContinue: false,
+    optionsSuccessStatus: 204
+  }));
+  
+  // Add OPTIONS handler for all routes
+  app.options('*', cors());
 app.use(express.urlencoded({ extended: true }));
-
+// Add CORS headers to all responses
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    
+    // Set Access-Control-Allow-Origin dynamically
+    if (origin && (origin.startsWith('http://localhost:') || origin === 'https://astravedam.onrender.com')) {
+      res.header('Access-Control-Allow-Origin', origin);
+    } else {
+      res.header('Access-Control-Allow-Origin', '*');
+    }
+    
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Expose-Headers', 'Content-Length');
+    
+    next();
+  });
+  
 // ✅ FIXED: Updated MongoDB connection (remove deprecated options)
 mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('✅ Connected to MongoDB Atlas'))
