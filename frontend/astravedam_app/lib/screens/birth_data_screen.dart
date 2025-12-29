@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dashboard_screen.dart';
-
+import '../services/api_service.dart';
 class BirthDataScreen extends StatefulWidget {
   const BirthDataScreen({super.key});
 
@@ -325,7 +325,8 @@ class _BirthDataScreenState extends State<BirthDataScreen> {
 
         // Send to backend
         final response = await http.post(
-        Uri.parse('http://localhost:3000/api/calculate-chart'),
+        // Uri.parse('http://localhost:3000/api/calculate-chart'),
+        Uri.parse('https://astravedam.onrender.com/api/calculate-chart'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(birthData),
         );

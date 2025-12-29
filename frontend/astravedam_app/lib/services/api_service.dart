@@ -7,7 +7,7 @@ class ApiService {
   static const String baseUrl = 'https://astravedam.onrender.com';
   
   // ❌ REMOVE localhost completely for production
-
+// static const String baseUrl = 'http://localhost:3000';
   static Future<Map<String, dynamic>> calculateChart(BirthData birthData) async {
     try {
       print('📡 Sending to PRODUCTION backend: $baseUrl');

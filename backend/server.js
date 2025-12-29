@@ -10,11 +10,13 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 // Middleware
+// With this:
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  methods: ['GET', 'POST'],
-  credentials: true
-}));
+    origin: ['http://localhost:49934', 'http://localhost:3000', 'https://astravedam.onrender.com'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
