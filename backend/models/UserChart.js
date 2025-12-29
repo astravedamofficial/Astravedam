@@ -7,11 +7,15 @@ const userChartSchema = new mongoose.Schema({
   location: String,
   latitude: Number,
   longitude: Number,
-  timezone: String,
+  timezone: { type: String, default: 'UTC' },
+  formattedAddress: String,
+  country: String,
+  city: String,
+  placeId: String,
   chartData: Object,
   createdAt: { type: Date, default: Date.now }
 }, { 
-  strict: false  // Allow extra fields during development
+  strict: false
 });
 
 module.exports = mongoose.model('UserChart', userChartSchema);

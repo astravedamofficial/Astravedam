@@ -3,8 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 
-// Import UserChart model
 const UserChart = require('./models/UserChart');
+const { geocodeLocation } = require('./utils/geoapify');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -60,7 +60,7 @@ app.use((req, res, next) => {
     
     next();
   });
-  
+
 // ✅ FIXED: Updated MongoDB connection (remove deprecated options)
 mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('✅ Connected to MongoDB Atlas'))
@@ -112,47 +112,94 @@ function calculateBirthChart(birthData) {
 
 // Routes
 app.post('/api/calculate-chart', async (req, res) => {
-  try {
-    const birthData = req.body;
-    console.log('📊 Received birth data:', birthData);
+    console.log('📥 Received chart request:', req.body);
     
-    // Validate required fields
-    if (!birthData.date || !birthData.time || !birthData.location) {
-      return res.status(400).json({ error: 'Missing required fields: date, time, location' });
+    try {
+      const { name, date, time, location } = req.body;
+      
+      // Validate required fields
+      if (!date || !time || !location) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Missing required fields: date, time, location' 
+        });
+      }
+      
+      // 1. Geocode the location
+      console.log('📍 Step 1: Geocoding location...');
+      const geoResult = await geocodeLocation(location);
+      
+      if (!geoResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: `Could not find location: ${location}. Please enter a valid city name.`
+        });
+      }
+      
+      console.log('📍 Geocoding result:', geoResult);
+      
+      // 2. Prepare enhanced birth data
+      const enhancedBirthData = {
+        name: name || 'User',
+        date: date,
+        time: time,
+        location: location,
+        latitude: geoResult.latitude,
+        longitude: geoResult.longitude,
+        timezone: geoResult.timezone
+      };
+      
+      // 3. Calculate birth chart (your existing function)
+      console.log('🔮 Step 2: Calculating chart...');
+      const chart = calculateBirthChart(enhancedBirthData);
+      
+      // 4. Save to database
+      console.log('💾 Step 3: Saving to database...');
+      const userChart = new UserChart({
+        name: name || 'User',
+        birthDate: new Date(date),
+        birthTime: time,
+        location: location,
+        formattedAddress: geoResult.formatted,
+        latitude: geoResult.latitude,
+        longitude: geoResult.longitude,
+        timezone: geoResult.timezone,
+        country: geoResult.country,
+        city: geoResult.city,
+        placeId: geoResult.place_id,
+        chartData: chart
+      });
+      
+      const savedChart = await userChart.save();
+      console.log('✅ Saved chart ID:', savedChart._id);
+      
+      // 5. Return success response
+      res.json({
+        success: true,
+        chart: chart,
+        chartId: savedChart._id,
+        locationData: {
+          coordinates: {
+            lat: geoResult.latitude,
+            lng: geoResult.longitude
+          },
+          timezone: geoResult.timezone,
+          formattedAddress: geoResult.formatted,
+          city: geoResult.city,
+          country: geoResult.country
+        },
+        message: 'Birth chart calculated successfully'
+      });
+      
+    } catch (error) {
+      console.error('❌ Server error in /api/calculate-chart:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Internal server error',
+        details: error.message 
+      });
     }
-    
-    // Calculate birth chart
-    const chart = calculateBirthChart(birthData);
-    
-    // Save to database
-    const userChart = new UserChart({
-      name: birthData.name || 'User',
-      birthDate: new Date(birthData.date),
-      birthTime: birthData.time,
-      location: birthData.location,
-      latitude: birthData.latitude || 0,
-      longitude: birthData.longitude || 0,
-      timezone: birthData.timezone || 'UTC',
-      chartData: chart
-    });
-    
-    const savedChart = await userChart.save();
-    
-    res.json({
-      success: true,
-      chart: chart,
-      chartId: savedChart._id,
-      message: 'Birth chart calculated and saved successfully'
-    });
-    
-  } catch (error) {
-    console.error('❌ Error in /api/calculate-chart:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      details: error.message 
-    });
-  }
-});
+  });
 
 // Health check
 app.get('/api/health', (req, res) => {
