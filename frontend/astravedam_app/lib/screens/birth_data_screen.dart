@@ -342,7 +342,7 @@ class _BirthDataScreenState extends State<BirthDataScreen> {
         Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-            builder: (context) => DashboardScreen(userChart: result['chart']),
+            builder: (context) => DashboardScreen(userChart: result),
             ),
         );
         } else {

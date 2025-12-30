@@ -44,79 +44,100 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildWelcomeSection() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.deepPurple[100],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.self_improvement,
-                color: Colors.deepPurple[600],
-                size: 30,
-              ),
+ Widget _buildWelcomeSection() {
+  // DEBUG: Check what data we have
+  print('=== DEBUG WELCOME SECTION ===');
+  print('UserChart keys: ${userChart.keys.toList()}');
+  print('Has locationData?: ${userChart.containsKey('locationData')}');
+  print('Full userChart: $userChart');
+  
+  final locationData = userChart['locationData'] ?? {};
+  print('LocationData: $locationData');
+  print('City: ${locationData['city']}');
+  print('Country: ${locationData['country']}');
+  // Add debug to verify
+
+  return Card(
+    elevation: 2,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.deepPurple[100],
+              shape: BoxShape.circle,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Welcome to Astravedam',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple[800],
-                    ),
+            child: Icon(
+              Icons.self_improvement,
+              color: Colors.deepPurple[600],
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome, ${userChart['name'] ?? 'User'}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepPurple[800],
                   ),
-                  const SizedBox(height: 4),
+                ),
+                const SizedBox(height: 4),
+                if (locationData['city'] != null)
                   Text(
-                    'Your cosmic journey begins here...',
+                    'Born in ${locationData['city']}, ${locationData['country']}',
                     style: TextStyle(
                       color: Colors.deepPurple[600],
+                      fontSize: 12,
                     ),
                   ),
-                ],
-              ),
+                Text(
+                  'Your cosmic journey begins here...',
+                  style: TextStyle(
+                    color: Colors.deepPurple[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.amber[50],
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.amber),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.workspace_premium,
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.amber[50],
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.amber),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.workspace_premium,
+                  color: Colors.amber[700],
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Credits: 5',
+                  style: TextStyle(
                     color: Colors.amber[700],
-                    size: 16,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Credits: 5',
-                    style: TextStyle(
-                      color: Colors.amber[700],
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildMainFeaturesGrid(BuildContext context) {
     return Column(
@@ -457,9 +478,10 @@ class DashboardScreen extends StatelessWidget {
     }
   }
 
-  void _showKundaliDetails(BuildContext context) {
-  // ✅ SAFE data access with null checks
+void _showKundaliDetails(BuildContext context) {
+  // ✅ SAFE data access with location data
   final chartData = userChart['chart'] ?? userChart;
+  final locationData = userChart['locationData'] ?? {};
   
   showDialog(
     context: context,
@@ -471,19 +493,83 @@ class DashboardScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Lagna: ${chartData['lagna'] ?? 'Not available'}'),
-              const SizedBox(height: 8),
-              Text('Sun: ${chartData['planets']?['sun']?['rashi'] ?? 'Not available'}'),
-              Text('Moon: ${chartData['planets']?['moon']?['rashi'] ?? 'Not available'}'),
-              Text('Mars: ${chartData['planets']?['mars']?['rashi'] ?? 'Not available'}'),
-              const SizedBox(height: 12),
-              Text(
-                chartData['summary'] ?? 'No summary available',
+              // Location Information
+              if (locationData['formattedAddress'] != null)
+                Card(
+                  color: Colors.blue[50],
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '📍 Birth Location:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        Text(locationData['formattedAddress'] ?? ''),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.schedule, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text('Timezone: ${locationData['timezone'] ?? 'UTC'}'),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text('Coords: ${locationData['coordinates']?['lat']?.toStringAsFixed(4) ?? '0'}, '
+                                 '${locationData['coordinates']?['lng']?.toStringAsFixed(4) ?? '0'}'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              
+              const SizedBox(height: 16),
+              
+              // Kundali Details
+              const Text(
+                '🧘‍♂️ Vedic Birth Chart:',
                 style: TextStyle(
-                  fontStyle: FontStyle.italic,
-                  color: Colors.grey[600],
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
               ),
+              const SizedBox(height: 8),
+              
+              DataTable(
+                columnSpacing: 16,
+                columns: const [
+                  DataColumn(label: Text('Planet')),
+                  DataColumn(label: Text('Rashi')),
+                  DataColumn(label: Text('Nakshatra')),
+                ],
+                rows: [
+                  _buildPlanetRow('Sun', chartData['planets']?['sun']),
+                  _buildPlanetRow('Moon', chartData['planets']?['moon']),
+                  _buildPlanetRow('Mars', chartData['planets']?['mars']),
+                ],
+              ),
+              
+              const SizedBox(height: 12),
+              Text('Lagna: ${chartData['lagna'] ?? 'Not available'}'),
+              const SizedBox(height: 8),
+              
+              if (chartData['summary'] != null)
+                Text(
+                  chartData['summary'] ?? '',
+                  style: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey[600],
+                  ),
+                ),
             ],
           ),
         ),
@@ -498,8 +584,20 @@ class DashboardScreen extends StatelessWidget {
   );
 }
 
-  void _showProfileDialog(BuildContext context) {
+// Helper method for planet rows
+DataRow _buildPlanetRow(String planetName, Map<String, dynamic>? planetData) {
+  return DataRow(
+    cells: [
+      DataCell(Text(planetName)),
+      DataCell(Text(planetData?['rashi'] ?? '--')),
+      DataCell(Text(planetData?['nakshatra'] ?? '--')),
+    ],
+  );
+}
+
+void _showProfileDialog(BuildContext context) {
   final chartData = userChart['chart'] ?? userChart;
+  final locationData = userChart['locationData'] ?? {};
   
   showDialog(
     context: context,
@@ -511,35 +609,51 @@ class DashboardScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const ListTile(
-                leading: Icon(Icons.person),
-                title: Text('Akash'),
-                subtitle: Text('Registered User'),
+              ListTile(
+                leading: const Icon(Icons.person),
+                title: Text(userChart['name'] ?? 'User'),
+                subtitle: const Text('Registered User'),
               ),
+              
               const SizedBox(height: 16),
               const Text(
                 'Birth Details:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const Text('Date: 22 November 2025'),
-              const Text('Time: 08:10 AM'),
-              const Text('Place: Vita'),
+              Text('Date: ${_formatDate(chartData['birthDate'])}'),
+              Text('Time: ${chartData['birthTime'] ?? 'Not specified'}'),
+              
+              // Show geocoded location if available
+              if (locationData['formattedAddress'] != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Place: ${locationData['formattedAddress']}'),
+                    Text('Timezone: ${locationData['timezone'] ?? 'UTC'}'),
+                  ],
+                )
+              else
+                Text('Place: ${chartData['location'] ?? 'Not specified'}'),
+              
               const SizedBox(height: 16),
               const Text(
                 'Kundali Summary:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               Text('Lagna: ${chartData['lagna'] ?? 'Not available'}'),
-              Text('Sun Sign: ${chartData['planets']?['sun']?['rashi'] ?? 'Not available'}'),
-              Text('Moon Sign: ${chartData['planets']?['moon']?['rashi'] ?? 'Not available'}'),
-              const SizedBox(height: 16),
-              Text(
-                chartData['summary'] ?? 'No summary available',
-                style: TextStyle(
-                  fontStyle: FontStyle.italic,
-                  color: Colors.grey[600],
+              Text('Sun: ${chartData['planets']?['sun']?['rashi'] ?? '--'}'),
+              Text('Moon: ${chartData['planets']?['moon']?['rashi'] ?? '--'}'),
+              
+              if (chartData['summary'] != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  chartData['summary'] ?? '',
+                  style: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey[600],
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -552,6 +666,20 @@ class DashboardScreen extends StatelessWidget {
       );
     },
   );
+}
+
+// Helper method to format date
+String _formatDate(dynamic date) {
+  if (date == null) return 'Not specified';
+  if (date is String) {
+    try {
+      final parsedDate = DateTime.parse(date);
+      return '${parsedDate.day}/${parsedDate.month}/${parsedDate.year}';
+    } catch (e) {
+      return date.toString();
+    }
+  }
+  return date.toString();
 }
 
   void _showCreditRequiredDialog(BuildContext context, String feature, int credits) {
