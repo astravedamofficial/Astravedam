@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';  // For json.decode
 import 'package:http/http.dart' as http;  // For API calls
-import '../services/user_id_service.dart';  // For userId
+import '../services/identity_service.dart';  // For userId
 import 'birth_data_screen.dart';  // ✅ ADD THIS LINE
+import '../services/auth_service.dart';  // ADD THIS
+import 'login_screen.dart';  // ADD THIS LINE
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> userChart;
@@ -67,34 +69,152 @@ void _showAddKundaliDialog(BuildContext context) {
     },
   );
 }
+
+void _logout(BuildContext context) async {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Logout'),
+      content: const Text('Are you sure you want to logout?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            Navigator.pop(context);
+            await AuthService.logout();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Logged out successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            setState(() {});
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red[600],
+          ),
+          child: const Text('Logout', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
+}
+
+void _showLoginRequiredDialog(BuildContext context, String featureName, int credits) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Login Required for $featureName'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('This feature requires login and $credits credit${credits > 1 ? 's' : ''}.'),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Icon(Icons.workspace_premium, color: Colors.amber, size: 20),
+              const SizedBox(width: 8),
+              Text('Cost: $credits credit${credits > 1 ? 's' : ''}'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.account_circle, color: Colors.deepPurple, size: 20),
+              const SizedBox(width: 8),
+              const Text('Requires registered account'),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LoginScreen(
+                  redirectMessage: 'Login to access "$featureName"',
+                  onLoginSuccess: () {
+                    // After login, show the feature
+                    // You'll implement this later
+                  },
+                ),
+              ),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.deepPurple[600],
+          ),
+          child: const Text('Login / Register', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
+}
     // ✅ ADD THIS METHOD TO FETCH KUNDALIS
-  Future<List<dynamic>> _fetchUserKundalis(BuildContext context) async {
-  try {
-    final userId = await UserIdService.getOrCreateUserId();
-    print('📊 Fetching kundalis for user: $userId (refresh: $_refreshCounter)');
-      
-      final response = await http.get(
-        Uri.parse('https://astravedam.onrender.com/api/charts?userId=$userId'),
-      );
-      
-      if (response.statusCode == 200) {
+    Future<List<dynamic>> _fetchUserKundalis(BuildContext context) async {
+    try {
+        final identity = await IdentityService.getIdentity();
+        final userId = identity['id'];
+        final isLoggedIn = identity['type'] == 'registered';
+        
+        print('📊 Fetching kundalis for user: $userId (type: ${isLoggedIn ? "registered" : "anonymous"})');
+        
+        // Build the URL based on login status
+        String url;
+        if (isLoggedIn) {
+        // Logged in user - no need for userId parameter
+        url = 'https://astravedam.onrender.com/api/charts';
+        } else {
+        // Anonymous user - need userId parameter
+        url = 'https://astravedam.onrender.com/api/charts?userId=$userId';
+        }
+        
+        // Prepare headers
+        final headers = <String, String>{
+        'Content-Type': 'application/json',
+        };
+        
+        // Add auth token if logged in
+        if (isLoggedIn) {
+        final token = await AuthService.getToken();
+        if (token != null) {
+            headers['Authorization'] = 'Bearer $token';
+        }
+        }
+        
+        final response = await http.get(
+        Uri.parse(url),
+        headers: headers,
+        );
+        
+        if (response.statusCode == 200) {
         final result = json.decode(response.body);
         final List<dynamic> kundalis = result['charts'] ?? [];
         print('✅ Found ${kundalis.length} kundalis');
         return kundalis;
-      }
-      return [];
+        }
+        return [];
     } catch (e) {
-      print('❌ Error fetching kundalis: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
+        print('❌ Error fetching kundalis: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to load kundalis: $e'),
-          duration: const Duration(seconds: 3),
+            content: Text('Failed to load kundalis: $e'),
+            duration: const Duration(seconds: 3),
         ),
-      );
-      return [];
+        );
+        return [];
     }
-  }
+    }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -105,12 +225,59 @@ void _showAddKundaliDialog(BuildContext context) {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              _showProfileDialog(context);
+        FutureBuilder<bool>(
+            future: AuthService.isLoggedIn(),
+            builder: (context, snapshot) {
+            final isLoggedIn = snapshot.data ?? false;
+            
+            if (isLoggedIn) {
+                // Show profile and logout
+                return PopupMenuButton(
+                icon: const Icon(Icons.person),
+                itemBuilder: (context) => [
+                    const PopupMenuItem(
+                    value: 'profile',
+                    child: ListTile(
+                        leading: Icon(Icons.person),
+                        title: Text('Profile'),
+                    ),
+                    ),
+                    const PopupMenuItem(
+                    value: 'logout',
+                    child: ListTile(
+                        leading: Icon(Icons.logout),
+                        title: Text('Logout'),
+                    ),
+                    ),
+                ],
+                onSelected: (value) {
+                    if (value == 'logout') {
+                    _logout(context);
+                    } else if (value == 'profile') {
+                    _showProfileDialog(context);
+                    }
+                },
+                );
+            } else {
+                // Show login button
+                return IconButton(
+                icon: const Icon(Icons.login),
+                onPressed: () {
+                    Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => LoginScreen(
+                        onLoginSuccess: () {
+                            setState(() {});
+                        },
+                        ),
+                    ),
+                    );
+                },
+                );
+            }
             },
-          ),
+        ),
         ],
       ),
       body: SafeArea(
@@ -201,97 +368,128 @@ void _showAddKundaliDialog(BuildContext context) {
   }
 
  Widget _buildWelcomeSection() {
-  // DEBUG: Check what data we have
-  print('=== DEBUG WELCOME SECTION ===');
-  print('UserChart keys: ${widget.userChart.keys.toList()}');
-  print('Has locationData?: ${widget.userChart.containsKey('locationData')}');
-  print('Full userChart: ${widget.userChart}');
-  
-  final locationData = widget.userChart['locationData'] ?? {};
-  print('LocationData: $locationData');
-  print('City: ${locationData['city']}');
-  print('Country: ${locationData['country']}');
-  // Add debug to verify
-
-  return Card(
-    elevation: 2,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.deepPurple[100],
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.self_improvement,
-              color: Colors.deepPurple[600],
-              size: 30,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Welcome, ${widget.userChart['name'] ?? 'User'}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple[800],
-                  ),
+  return FutureBuilder<Map<String, dynamic>?>(
+    future: AuthService.getUserData(),
+    builder: (context, snapshot) {
+      final userData = snapshot.data;
+      final isLoggedIn = userData != null;
+      
+      final userName = isLoggedIn 
+          ? (userData['name'] ?? 'User')
+          : (widget.userChart['name'] ?? 'User');
+      
+      final locationData = widget.userChart['locationData'] ?? {};
+      
+      return Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Avatar/Icon
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isLoggedIn ? Colors.green[100] : Colors.deepPurple[100],
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 4),
-                if (locationData['city'] != null)
-                  Text(
-                    'Born in ${locationData['city']}, ${locationData['country']}',
-                    style: TextStyle(
-                      color: Colors.deepPurple[600],
-                      fontSize: 12,
+                child: Icon(
+                  isLoggedIn ? Icons.person : Icons.self_improvement,
+                  color: isLoggedIn ? Colors.green[600] : Colors.deepPurple[600],
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Welcome, $userName',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple[800],
+                          ),
+                        ),
+                        if (isLoggedIn) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.green),
+                            ),
+                            child: Text(
+                              'Account',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.green[700],
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ),
-                Text(
-                  'Your cosmic journey begins here...',
-                  style: TextStyle(
-                    color: Colors.deepPurple[600],
-                    fontSize: 12,
-                  ),
+                    const SizedBox(height: 4),
+                    if (locationData['city'] != null)
+                      Text(
+                        'Born in ${locationData['city']}, ${locationData['country']}',
+                        style: TextStyle(
+                          color: Colors.deepPurple[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    Text(
+                      isLoggedIn 
+                          ? 'Your cosmic journey continues...' 
+                          : 'Your cosmic journey begins here...',
+                      style: TextStyle(
+                        color: Colors.deepPurple[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              // Credits badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber[50],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.amber),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.workspace_premium,
+                      color: Colors.amber[700],
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isLoggedIn
+                          ? 'Credits: ${userData?['credits'] ?? 0}'
+                          : 'Credits: 0',
+                      style: TextStyle(
+                        color: Colors.amber[700],
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.amber[50],
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.amber),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.workspace_premium,
-                  color: Colors.amber[700],
-                  size: 16,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Credits: 5',
-                  style: TextStyle(
-                    color: Colors.amber[700],
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
+        ),
+      );
+    },
   );
 }
 
@@ -504,14 +702,15 @@ Widget _buildKundaliListSection(BuildContext context) {
               },
             ),
             _buildFeatureCard(
-              context,
-              Icons.self_improvement,
-              'Ask Gods',
-              '3 Questions',
-              Colors.purple,
-              () {
-                _showComingSoon(context, 'Ask Gods');
-              },
+                context,
+                Icons.self_improvement,
+                'Ask Gods',
+                '1 Credit',
+                Colors.purple,
+                () {
+                    // Show login wall for Ask Gods
+                    _showLoginRequiredDialog(context, 'Ask Gods', 1);
+                },
             ),
             _buildFeatureCard(
               context,

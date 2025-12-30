@@ -2,6 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+// Add these lines AFTER line 5 (after mongoose import)
+const session = require('express-session');
+const passport = require('./utils/googleOAuth');
+const { optionalAuth } = require('./utils/auth');
+const User = require('./models/User');
 
 const UserChart = require('./models/UserChart');
 const { geocodeLocation } = require('./utils/geoapify');
@@ -42,6 +47,22 @@ app.use(cors({
   // Add OPTIONS handler for all routes
   app.options('*', cors());
 app.use(express.urlencoded({ extended: true }));
+
+// Session configuration (for Google OAuth)
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'astravedam_secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  }));
+  
+  // Initialize Passport
+  app.use(passport.initialize());
+  app.use(passport.session());
+
 // Add CORS headers to all responses
 app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -110,21 +131,154 @@ function calculateBirthChart(birthData) {
   return chart;
 }
 
+// ==============================
+// 🔐 AUTHENTICATION ROUTES
+// ==============================
+
+// 1. Health check (public)
+app.get('/api/health', (req, res) => {
+    res.json({ 
+      status: '🚀 Astravedam Backend is running!', 
+      timestamp: new Date().toISOString(),
+      version: '2.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
+      features: ['Google Login', 'Multi-Kundali', 'Geocoding']
+    });
+  });
+  
+  // 2. Google OAuth Login
+  app.get('/api/auth/google',
+    passport.authenticate('google', { 
+      scope: ['profile', 'email'],
+      prompt: 'select_account' // Force account selection
+    })
+  );
+  
+  // 3. Google OAuth Callback
+  app.get('/api/auth/google/callback',
+    passport.authenticate('google', { 
+      failureRedirect: '/auth/failed',
+      session: false  // We don't need sessions, we'll use JWT
+    }),
+    async (req, res) => {
+      try {
+        // Generate JWT token
+        const jwt = require('jsonwebtoken');
+        const token = jwt.sign(
+          { userId: req.user._id },
+          process.env.JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+        
+        // Redirect to frontend with token
+        const frontendUrl = process.env.NODE_ENV === 'production' 
+          ? 'https://astravedam-app.web.app'  // Your Flutter web URL
+          : 'http://localhost:3001';           // Flutter local URL
+        
+        res.redirect(`${frontendUrl}/auth/callback?token=${token}&userId=${req.user._id}`);
+      } catch (error) {
+        console.error('Callback error:', error);
+        res.redirect(`${frontendUrl}/auth/error`);
+      }
+    }
+  );
+  
+  // 4. Get current user profile (protected)
+  app.get('/api/auth/me', optionalAuth, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Not authenticated'
+        });
+      }
+      
+      res.json({
+        success: true,
+        user: req.user.getPublicProfile()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+  
+  // 5. Logout (frontend just discards token)
+  app.post('/api/auth/logout', (req, res) => {
+    res.json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  });
+  
+  // 6. Link anonymous charts to user account
+  app.post('/api/auth/link-charts', optionalAuth, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required'
+        });
+      }
+      
+      const { anonymousUserId } = req.body;
+      
+      if (!anonymousUserId) {
+        return res.status(400).json({
+          success: false,
+          error: 'anonymousUserId is required'
+        });
+      }
+      
+      // Find all charts with this anonymous ID
+      const charts = await UserChart.find({ userId: anonymousUserId });
+      
+      // Link them to the user
+      for (const chart of charts) {
+        chart.ownerUserId = req.user._id;
+        await chart.save();
+      }
+      
+      res.json({
+        success: true,
+        linkedCount: charts.length,
+        message: `Successfully linked ${charts.length} charts to your account`
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+  
+  // 7. Auth failure route
+  app.get('/auth/failed', (req, res) => {
+    res.status(401).json({
+      success: false,
+      error: 'Google authentication failed'
+    });
+  });
+  
+
 // Routes
-app.post('/api/calculate-chart', async (req, res) => {
+app.post('/api/calculate-chart', optionalAuth, async (req, res) => {
     console.log('📥 Received chart request:', req.body);
     
     try {
-    //   const { name, date, time, location } = req.body;
       const { 
         name, 
         date, 
         time, 
         location, 
-        userId,          // NEW: Anonymous user ID
-        personName,      // NEW: Whose chart this is
-        setAsPrimary     // NEW: Whether to set as primary
+        userId,          // Anonymous user ID
+        personName,      
+        setAsPrimary     
       } = req.body;
+  
 
       // Validate required fields
       if (!date || !time || !location) {
@@ -165,21 +319,32 @@ app.post('/api/calculate-chart', async (req, res) => {
       // 4. Save to database
       console.log('💾 Step 3: Saving to database...');
      // ✅ CRITICAL FIX 1: Ensure only one primary per user
-    if (userId && setAsPrimary === true) {
-        // Unset all other primaries for this user
+     if ((userId || req.user) && setAsPrimary === true) {
+        let query = {};
+        
+        if (req.user) {
+          // Registered user: unset primaries for this user
+          query.ownerUserId = req.user._id;
+        } else if (userId) {
+          // Anonymous user: unset primaries for this anonymous ID
+          query.userId = userId;
+        }
+        
         await UserChart.updateMany(
-        { userId: userId }, 
-        { $set: { isPrimary: false } }
+          query, 
+          { $set: { isPrimary: false } }
         );
-        console.log(`♻️ Reset previous primaries for user: ${userId}`);
-    }
+        console.log(`♻️ Reset previous primaries`);
+      }
     
     // ✅ Create the chart (same as before with fixed logic)
+    // ✅ Create the chart with dual ownership
     const userChart = new UserChart({
-        // New fields for multi-kundali support
+        // Anonymous system
         userId: userId || null,
+        ownerUserId: req.user?._id || null,
         personName: personName || name || 'User',
-        isPrimary: userId ? (setAsPrimary === true) : true,
+        isPrimary: (userId || req.user) ? (setAsPrimary === true) : true,
         
         // All existing fields (NO CHANGES)
         name: name || 'User',
@@ -240,27 +405,54 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/api/charts', async (req, res) => {
+app.get('/api/charts', optionalAuth, async (req, res) => {
     try {
-      const { userId } = req.query;
+      let query = {};
       
-      if (!userId) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'userId query parameter is required' 
+      // Priority 1: If user is logged in, get their charts
+      if (req.user) {
+        query.ownerUserId = req.user._id;
+        console.log(`📊 Fetching charts for registered user: ${req.user._id}`);
+      } 
+      // Priority 2: If anonymous userId provided in query
+      else if (req.query.userId) {
+        query.userId = req.query.userId;
+        console.log(`📊 Fetching charts for anonymous user: ${req.query.userId}`);
+      }
+      // Priority 3: If both user is logged in AND anonymous ID provided
+      // (This happens when user logs in for first time and we need to merge)
+      else if (req.user && req.query.anonymousUserId) {
+        // Return charts from BOTH sources for merging
+        const registeredCharts = await UserChart.find({ ownerUserId: req.user._id });
+        const anonymousCharts = await UserChart.find({ userId: req.query.anonymousUserId });
+        
+        const allCharts = [...registeredCharts, ...anonymousCharts];
+        
+        return res.json({
+          success: true,
+          charts: allCharts,
+          count: allCharts.length,
+          source: 'merged'
         });
       }
-  
-      const charts = await UserChart.find({ userId: userId })
+      else {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'User identifier required. Please login or provide userId.' 
+        });
+      }
+    
+      const charts = await UserChart.find(query)
         .sort({ createdAt: -1 })
         .select('-__v'); // Exclude version field
       
-      console.log(`📊 Found ${charts.length} charts for user: ${userId}`);
+      console.log(`📊 Found ${charts.length} charts`);
       
       res.json({
         success: true,
         charts: charts,
-        count: charts.length
+        count: charts.length,
+        source: req.user ? 'registered' : 'anonymous'
       });
       
     } catch (error) {

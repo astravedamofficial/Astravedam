@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dashboard_screen.dart';
 import '../services/api_service.dart';
-import '../services/user_id_service.dart';  // ✅ ADD THIS LINE
+import '../services/identity_service.dart';  // CHANGE FROM user_id_service
+import '../services/auth_service.dart';  // ADD THIS LINE
 class BirthDataScreen extends StatefulWidget {
   final bool isAdditionalKundali;
   
@@ -370,7 +371,9 @@ Future<void> _calculateChart() async {
     try {
         // ✅ FIXED: Get user ID
         // Get user ID
-        final userId = await UserIdService.getOrCreateUserId();
+        final identity = await IdentityService.getIdentity();
+        final userId = identity['id'];
+        final isLoggedIn = identity['type'] == 'registered';
         
         // ✅ GET PERSON NAME
         final personName = _nameController.text.isEmpty 
@@ -386,11 +389,20 @@ Future<void> _calculateChart() async {
         'date': _selectedDate!.toIso8601String(),
         'time': '${_selectedTime!.hour}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
         'location': _locationController.text,
-        // ✅ NEW FIELDS
-        'userId': userId,
+        'userId': isLoggedIn ? null : userId,  // Only send anonymous ID if not logged in
         'personName': personName,
         'setAsPrimary': setAsPrimary,
         };
+        // If logged in, we need to send token in header
+        final headers = {
+            'Content-Type': 'application/json',
+        };
+        if (isLoggedIn) {
+            final token = await AuthService.getToken();
+            if (token != null) {
+                headers['Authorization'] = 'Bearer $token';
+            }
+        }
         print('📤 Creating ${widget.isAdditionalKundali ? "ADDITIONAL" : "PRIMARY"} kundali');
         print('   UserId: $userId');
         print('   SetAsPrimary: $setAsPrimary');
@@ -399,7 +411,7 @@ Future<void> _calculateChart() async {
         // ✅ REST OF YOUR CODE STAYS EXACTLY THE SAME
         final response = await http.post(
         Uri.parse('https://astravedam.onrender.com/api/calculate-chart'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,  // Use the headers we created
         body: json.encode(birthData),
         );
         
