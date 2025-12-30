@@ -408,15 +408,33 @@ Future<void> _calculateChart() async {
 
         if (response.statusCode == 200) {
         final result = json.decode(response.body);
-        print('✅ Chart calculated successfully!');
+        print('✅ ${widget.isAdditionalKundali ? "Additional" : "Primary"} kundali created successfully!');
         
-        // Navigate to Dashboard (existing code unchanged)
-        Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-            builder: (context) => DashboardScreen(userChart: result),
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+            content: Text(
+                widget.isAdditionalKundali 
+                    ? '✅ Kundali added successfully!'
+                    : '✅ Your birth chart is ready!',
+            ),
+            backgroundColor: Colors.green,
             ),
         );
+        
+        // ✅ FIXED NAVIGATION:
+        if (widget.isAdditionalKundali) {
+            // For ADDITIONAL kundali: Just go back to previous screen (Dashboard)
+            Navigator.pop(context);
+        } else {
+            // For FIRST/PRIMARY kundali: Go to new Dashboard screen
+            Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) => DashboardScreen(userChart: result),
+            ),
+            );
+          }
         } else {
         throw Exception('Backend error: ${response.statusCode}');
         }
