@@ -5,7 +5,12 @@ import 'dashboard_screen.dart';
 import '../services/api_service.dart';
 import '../services/user_id_service.dart';  // ✅ ADD THIS LINE
 class BirthDataScreen extends StatefulWidget {
-  const BirthDataScreen({super.key});
+  final bool isAdditionalKundali;
+  
+  const BirthDataScreen({
+    super.key,
+    this.isAdditionalKundali = false,
+  });
 
   @override
   State<BirthDataScreen> createState() => _BirthDataScreenState();
@@ -17,7 +22,14 @@ class _BirthDataScreenState extends State<BirthDataScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _isLoading = false;
-
+    // ✅ ADD THIS initState METHOD
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isAdditionalKundali) {
+      _nameController.clear();
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -29,11 +41,17 @@ class _BirthDataScreenState extends State<BirthDataScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              _buildHeader(),
+              _buildHeader(widget.isAdditionalKundali),
               const SizedBox(height: 40),
               
               // Name Field
-              _buildTextField('Your Name (Optional)', _nameController),
+              _buildTextField(
+                widget.isAdditionalKundali 
+                  ? 'Person\'s Name *'
+                  : 'Your Name (Optional)',
+                _nameController,
+                isRequired: widget.isAdditionalKundali,
+              ),
               const SizedBox(height: 24),
               
               // Date of Birth
@@ -49,9 +67,9 @@ class _BirthDataScreenState extends State<BirthDataScreen> {
               const SizedBox(height: 40),
               
               // Calculate Button
-              _isLoading 
-                  ? const Center(child: CircularProgressIndicator())
-                  : _buildCalculateButton(),
+             _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : _buildCalculateButton(widget.isAdditionalKundali),
             ],
           ),
         ),
@@ -59,94 +77,119 @@ class _BirthDataScreenState extends State<BirthDataScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-        // Spiritual icon
-        Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-            color: Colors.deepPurple[50],
-            shape: BoxShape.circle,
-            ),
-            child: Icon(
-            Icons.self_improvement,
-            size: 40,
-            color: Colors.deepPurple[600],
-            ),
+// ✅ ADD PARAMETER TO METHOD
+Widget _buildHeader(bool isAdditionalKundali) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          // ✅ USE DIFFERENT COLOR BASED ON TYPE
+          color: isAdditionalKundali ? Colors.green[50] : Colors.deepPurple[50],
+          shape: BoxShape.circle,
         ),
-        const SizedBox(height: 20),
-        Text(
-            'Astravedam',
-            style: TextStyle(
-            fontSize: 36,
-            fontWeight: FontWeight.bold,
-            color: Colors.deepPurple[800],
-            fontFamily: 'serif',
-            ),
+        child: Icon(
+          // ✅ USE DIFFERENT ICON
+          isAdditionalKundali ? Icons.group_add : Icons.self_improvement,
+          size: 40,
+          color: isAdditionalKundali ? Colors.green[600] : Colors.deepPurple[600],
         ),
-        const SizedBox(height: 8),
-        Text(
-            'Vedic Astrology & Birth Chart Analysis',
-            style: TextStyle(
-            fontSize: 16,
-            color: Colors.deepPurple[600],
-            fontStyle: FontStyle.italic,
-            ),
-            textAlign: TextAlign.center,
+      ),
+      const SizedBox(height: 20),
+      Text(
+        // ✅ DIFFERENT TITLE
+        isAdditionalKundali ? 'Add Kundali' : 'Astravedam',
+        style: TextStyle(
+          fontSize: 36,
+          fontWeight: FontWeight.bold,
+          color: isAdditionalKundali ? Colors.green[800] : Colors.deepPurple[800],
+          fontFamily: 'serif',
         ),
-        const SizedBox(height: 8),
-        Text(
-            'Discover your cosmic blueprint',
-            style: TextStyle(
-            fontSize: 14,
-            color: Colors.deepPurple[400],
-            ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        // ✅ DIFFERENT SUBTITLE
+        isAdditionalKundali 
+            ? 'Create birth chart for family or friend'
+            : 'Vedic Astrology & Birth Chart Analysis',
+        style: TextStyle(
+          fontSize: 16,
+          color: isAdditionalKundali ? Colors.green[600] : Colors.deepPurple[600],
+          fontStyle: FontStyle.italic,
         ),
-        const SizedBox(height: 30),
-        Container(
-            height: 1,
-            color: Colors.deepPurple[100],
+        textAlign: TextAlign.center,
+      ),
+      const SizedBox(height: 8),
+      Text(
+        // ✅ DIFFERENT DESCRIPTION
+        isAdditionalKundali 
+            ? 'All charts saved under your profile'
+            : 'Discover your cosmic blueprint',
+        style: TextStyle(
+          fontSize: 14,
+          color: isAdditionalKundali ? Colors.green[400] : Colors.deepPurple[400],
         ),
-        ],
-    );
-    }
+      ),
+      const SizedBox(height: 30),
+      Container(
+        height: 1,
+        color: isAdditionalKundali ? Colors.green[100] : Colors.deepPurple[100],
+      ),
+    ],
+  );
+}
 
-  Widget _buildTextField(String label, TextEditingController controller) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Colors.deepPurple[800],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: 'Enter $label',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.deepPurple[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.deepPurple[500]!),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
+// ✅ ADD isRequired PARAMETER
+Widget _buildTextField(String label, TextEditingController controller, {bool isRequired = false}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.deepPurple[800],
             ),
           ),
+          // ✅ SHOW ASTERISK IF REQUIRED
+          if (isRequired) ...[
+            const SizedBox(width: 4),
+            Text(
+              '*',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ],
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          hintText: 'Enter ${label.replaceAll('*', '').trim()}',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.deepPurple[300]!),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.deepPurple[500]!),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _buildDateField() {
     return Column(
@@ -250,30 +293,35 @@ class _BirthDataScreenState extends State<BirthDataScreen> {
     );
   }
 
-  Widget _buildCalculateButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _calculateChart,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.deepPurple[600],
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 2,
+// ✅ ADD PARAMETER
+Widget _buildCalculateButton(bool isAdditionalKundali) {
+  return SizedBox(
+    width: double.infinity,
+    child: ElevatedButton(
+      onPressed: _calculateChart,
+      style: ElevatedButton.styleFrom(
+        // ✅ DIFFERENT COLOR
+        backgroundColor: isAdditionalKundali ? Colors.green[600] : Colors.deepPurple[600],
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: const Text(
-          'Calculate My Chart',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+        elevation: 2,
+      ),
+      child: Text(
+        // ✅ DIFFERENT TEXT
+        isAdditionalKundali 
+            ? 'Add This Kundali'
+            : 'Calculate My Chart',
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
@@ -301,7 +349,13 @@ class _BirthDataScreenState extends State<BirthDataScreen> {
     }
   }
 
-    Future<void> _calculateChart() async {
+Future<void> _calculateChart() async {
+    if (widget.isAdditionalKundali && _nameController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter person\'s name')),
+        );
+        return;
+    }
     if (_locationController.text.isEmpty || _selectedDate == null || _selectedTime == null) {
         ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all required fields')),
@@ -315,21 +369,31 @@ class _BirthDataScreenState extends State<BirthDataScreen> {
 
     try {
         // ✅ FIXED: Get user ID
+        // Get user ID
         final userId = await UserIdService.getOrCreateUserId();
         
-        // ✅ FIXED: Prepare birth data with correct fields
-        final name = _nameController.text.isEmpty ? 'User' : _nameController.text;
+        // ✅ GET PERSON NAME
+        final personName = _nameController.text.isEmpty 
+            ? 'User' 
+            : _nameController.text;
+        
+        // ✅ SET PRIMARY FLAG CORRECTLY
+        final bool setAsPrimary = !widget.isAdditionalKundali;
+
+        // Prepare birth data for backend
         final birthData = {
-        'name': name,
+        'name': personName,
         'date': _selectedDate!.toIso8601String(),
         'time': '${_selectedTime!.hour}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
         'location': _locationController.text,
-        // ✅ New fields for multi-kundali support
+        // ✅ NEW FIELDS
         'userId': userId,
-        'personName': name,  // Same as name for now (user's own chart)
-        'setAsPrimary': true,  // This is user's primary chart
+        'personName': personName,
+        'setAsPrimary': setAsPrimary,
         };
-        
+        print('📤 Creating ${widget.isAdditionalKundali ? "ADDITIONAL" : "PRIMARY"} kundali');
+        print('   UserId: $userId');
+        print('   SetAsPrimary: $setAsPrimary');
         print('📤 Sending to backend: ${birthData.keys.toList()}');
         
         // ✅ REST OF YOUR CODE STAYS EXACTLY THE SAME

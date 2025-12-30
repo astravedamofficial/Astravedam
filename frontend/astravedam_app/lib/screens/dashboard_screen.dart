@@ -1,10 +1,50 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';  // For json.decode
+import 'package:http/http.dart' as http;  // For API calls
+import '../services/user_id_service.dart';  // For userId
+import 'birth_data_screen.dart';  // ✅ ADD THIS LINE
 
 class DashboardScreen extends StatelessWidget {
   final Map<String, dynamic> userChart;
   
   const DashboardScreen({super.key, required this.userChart});
-
+    
+    void _showAddKundaliDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Add Kundali'),
+          content: const Text('Add birth chart for another person (family member, friend, etc.)'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Navigate to BirthDataScreen for additional kundali
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BirthDataScreen(
+                      isAdditionalKundali: true,  // Important flag!
+                    ),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple[600],
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Add Now'),
+            ),
+          ],
+        );
+      },
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -30,6 +70,68 @@ class DashboardScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildWelcomeSection(),
+              const SizedBox(height: 16),
+        
+            // ✅ ADD THIS CARD RIGHT HERE (after welcome section)
+            Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+            ),
+            child: InkWell(
+                onTap: () => _showAddKundaliDialog(context),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                    children: [
+                    Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.green[100]!),  // ✅ ADD ! at the end
+                        ),
+                        child: Icon(
+                        Icons.add_circle_outline,
+                        color: Colors.green[700],
+                        size: 24,
+                        ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                        child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                            Text(
+                            'Add Another Kundali',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green[800],
+                            ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                            'Create birth chart for family or friends',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                            ),
+                            ),
+                        ],
+                        ),
+                    ),
+                    Icon(
+                        Icons.arrow_forward_ios,
+                        size: 18,
+                        color: Colors.grey[500],
+                    ),
+                    ],
+                ),
+                ),
+            ),
+            ),
               const SizedBox(height: 24),
               _buildMainFeaturesGrid(context),
               const SizedBox(height: 24),
@@ -668,19 +770,19 @@ void _showProfileDialog(BuildContext context) {
   );
 }
 
-// Helper method to format date
-String _formatDate(dynamic date) {
-  if (date == null) return 'Not specified';
-  if (date is String) {
-    try {
-      final parsedDate = DateTime.parse(date);
-      return '${parsedDate.day}/${parsedDate.month}/${parsedDate.year}';
-    } catch (e) {
-      return date.toString();
+    // Helper method to format date
+    String _formatDate(dynamic date) {
+    if (date == null) return 'Not specified';
+    if (date is String) {
+        try {
+        final parsedDate = DateTime.parse(date);
+        return '${parsedDate.day}/${parsedDate.month}/${parsedDate.year}';
+        } catch (e) {
+        return date.toString();
+        }
     }
-  }
-  return date.toString();
-}
+    return date.toString();
+    }
 
   void _showCreditRequiredDialog(BuildContext context, String feature, int credits) {
     showDialog(
