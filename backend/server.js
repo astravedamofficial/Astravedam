@@ -115,8 +115,17 @@ app.post('/api/calculate-chart', async (req, res) => {
     console.log('📥 Received chart request:', req.body);
     
     try {
-      const { name, date, time, location } = req.body;
-      
+    //   const { name, date, time, location } = req.body;
+      const { 
+        name, 
+        date, 
+        time, 
+        location, 
+        userId,          // NEW: Anonymous user ID
+        personName,      // NEW: Whose chart this is
+        setAsPrimary     // NEW: Whether to set as primary
+      } = req.body;
+
       // Validate required fields
       if (!date || !time || !location) {
         return res.status(400).json({ 
@@ -155,7 +164,24 @@ app.post('/api/calculate-chart', async (req, res) => {
       
       // 4. Save to database
       console.log('💾 Step 3: Saving to database...');
-      const userChart = new UserChart({
+     // ✅ CRITICAL FIX 1: Ensure only one primary per user
+    if (userId && setAsPrimary === true) {
+        // Unset all other primaries for this user
+        await UserChart.updateMany(
+        { userId: userId }, 
+        { $set: { isPrimary: false } }
+        );
+        console.log(`♻️ Reset previous primaries for user: ${userId}`);
+    }
+    
+    // ✅ Create the chart (same as before with fixed logic)
+    const userChart = new UserChart({
+        // New fields for multi-kundali support
+        userId: userId || null,
+        personName: personName || name || 'User',
+        isPrimary: userId ? (setAsPrimary === true) : true,
+        
+        // All existing fields (NO CHANGES)
         name: name || 'User',
         birthDate: new Date(date),
         birthTime: time,
@@ -168,9 +194,11 @@ app.post('/api/calculate-chart', async (req, res) => {
         city: geoResult.city,
         placeId: geoResult.place_id,
         chartData: chart
-      });
-      
-      const savedChart = await userChart.save();
+    });
+    
+    const savedChart = await userChart.save();
+    console.log('✅ Saved chart. ID:', savedChart._id, '| User:', savedChart.userId, '| Primary:', savedChart.isPrimary);
+
       console.log('✅ Saved chart ID:', savedChart._id);
       
       // 5. Return success response
@@ -212,6 +240,39 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/charts', async (req, res) => {
+    try {
+      const { userId } = req.query;
+      
+      if (!userId) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'userId query parameter is required' 
+        });
+      }
+  
+      const charts = await UserChart.find({ userId: userId })
+        .sort({ createdAt: -1 })
+        .select('-__v'); // Exclude version field
+      
+      console.log(`📊 Found ${charts.length} charts for user: ${userId}`);
+      
+      res.json({
+        success: true,
+        charts: charts,
+        count: charts.length
+      });
+      
+    } catch (error) {
+      console.error('❌ /api/charts error:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Internal server error',
+        details: error.message 
+      });
+    }
+  });
+  
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🎯 Astravedam Backend Started!`);

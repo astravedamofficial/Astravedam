@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dashboard_screen.dart';
 import '../services/api_service.dart';
+import '../services/user_id_service.dart';  // ✅ ADD THIS LINE
 class BirthDataScreen extends StatefulWidget {
   const BirthDataScreen({super.key});
 
@@ -313,24 +314,31 @@ class _BirthDataScreenState extends State<BirthDataScreen> {
     });
 
     try {
-        // Prepare birth data for backend
+        // ✅ FIXED: Get user ID
+        final userId = await UserIdService.getOrCreateUserId();
+        
+        // ✅ FIXED: Prepare birth data with correct fields
+        final name = _nameController.text.isEmpty ? 'User' : _nameController.text;
         final birthData = {
-        'name': _nameController.text.isEmpty ? 'User' : _nameController.text,
+        'name': name,
         'date': _selectedDate!.toIso8601String(),
         'time': '${_selectedTime!.hour}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
         'location': _locationController.text,
+        // ✅ New fields for multi-kundali support
+        'userId': userId,
+        'personName': name,  // Same as name for now (user's own chart)
+        'setAsPrimary': true,  // This is user's primary chart
         };
-
-        print('📤 Sending to backend: $birthData');
-
-        // Send to backend
+        
+        print('📤 Sending to backend: ${birthData.keys.toList()}');
+        
+        // ✅ REST OF YOUR CODE STAYS EXACTLY THE SAME
         final response = await http.post(
-        // Uri.parse('http://localhost:3000/api/calculate-chart'),
         Uri.parse('https://astravedam.onrender.com/api/calculate-chart'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(birthData),
         );
-
+        
         print('📥 Backend response status: ${response.statusCode}');
         print('📥 Backend response body: ${response.body}');
 
@@ -338,7 +346,7 @@ class _BirthDataScreenState extends State<BirthDataScreen> {
         final result = json.decode(response.body);
         print('✅ Chart calculated successfully!');
         
-        // Navigate to Dashboard instead of showing dialog
+        // Navigate to Dashboard (existing code unchanged)
         Navigator.pushReplacement(
             context,
             MaterialPageRoute(

@@ -1,6 +1,24 @@
 const mongoose = require('mongoose');
 
 const userChartSchema = new mongoose.Schema({
+  // ✅ Add index for faster queries
+  userId: { 
+    type: String,
+    default: null,
+    index: true  // ✅ Optional but recommended
+  },
+  
+  personName: {
+    type: String,
+    default: 'User'
+  },
+  
+  isPrimary: {
+    type: Boolean,
+    default: false
+  },
+  
+  // ✅ ALL EXISTING FIELDS - NO CHANGES
   name: String,
   birthDate: Date,
   birthTime: String,
