@@ -51,7 +51,6 @@ const userChartSchema = new mongoose.Schema({
 // Update timestamp before saving
 userChartSchema.pre('save', function(next) {
   this.updatedAt = new Date();
-  next();
 });
 
 module.exports = mongoose.model('UserChart', userChartSchema);
