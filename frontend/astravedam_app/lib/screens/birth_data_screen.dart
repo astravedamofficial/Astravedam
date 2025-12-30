@@ -424,8 +424,8 @@ Future<void> _calculateChart() async {
         
         // ✅ FIXED NAVIGATION:
         if (widget.isAdditionalKundali) {
-            // For ADDITIONAL kundali: Just go back to previous screen (Dashboard)
-            Navigator.pop(context);
+            // For ADDITIONAL kundali: Return true to trigger refresh
+            Navigator.pop(context, true);
         } else {
             // For FIRST/PRIMARY kundali: Go to new Dashboard screen
             Navigator.pushReplacement(

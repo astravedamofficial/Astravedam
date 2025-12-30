@@ -4,52 +4,74 @@ import 'package:http/http.dart' as http;  // For API calls
 import '../services/user_id_service.dart';  // For userId
 import 'birth_data_screen.dart';  // ✅ ADD THIS LINE
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> userChart;
   
   const DashboardScreen({super.key, required this.userChart});
-    
-    void _showAddKundaliDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Add Kundali'),
-          content: const Text('Add birth chart for another person (family member, friend, etc.)'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Navigate to BirthDataScreen for additional kundali
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BirthDataScreen(
-                      isAdditionalKundali: true,  // Important flag!
-                    ),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple[600],
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Add Now'),
-            ),
-          ],
-        );
-      },
-    );
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+
+    // ✅ ADD THIS VARIABLE
+  int _refreshCounter = 0;
+  
+  // ✅ ADD THIS METHOD
+  void _refreshKundaliList() {
+    setState(() {
+      _refreshCounter++;
+      print('🔄 Refreshing kundali list (counter: $_refreshCounter)');
+    });
   }
+    
+void _showAddKundaliDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Add Kundali'),
+        content: const Text('Add birth chart for another person (family member, friend, etc.)'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              // ✅ Navigate and wait for result
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BirthDataScreen(
+                    isAdditionalKundali: true,
+                  ),
+                ),
+              );
+              
+              // ✅ Refresh when we come back
+              if (result == true) {
+                _refreshKundaliList();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple[600],
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Add Now'),
+          ),
+        ],
+      );
+    },
+  );
+}
     // ✅ ADD THIS METHOD TO FETCH KUNDALIS
   Future<List<dynamic>> _fetchUserKundalis(BuildContext context) async {
-    try {
-      final userId = await UserIdService.getOrCreateUserId();
-      print('📊 Fetching kundalis for user: $userId');
+  try {
+    final userId = await UserIdService.getOrCreateUserId();
+    print('📊 Fetching kundalis for user: $userId (refresh: $_refreshCounter)');
       
       final response = await http.get(
         Uri.parse('https://astravedam.onrender.com/api/charts?userId=$userId'),
@@ -181,11 +203,11 @@ class DashboardScreen extends StatelessWidget {
  Widget _buildWelcomeSection() {
   // DEBUG: Check what data we have
   print('=== DEBUG WELCOME SECTION ===');
-  print('UserChart keys: ${userChart.keys.toList()}');
-  print('Has locationData?: ${userChart.containsKey('locationData')}');
-  print('Full userChart: $userChart');
+  print('UserChart keys: ${widget.userChart.keys.toList()}');
+  print('Has locationData?: ${widget.userChart.containsKey('locationData')}');
+  print('Full userChart: ${widget.userChart}');
   
-  final locationData = userChart['locationData'] ?? {};
+  final locationData = widget.userChart['locationData'] ?? {};
   print('LocationData: $locationData');
   print('City: ${locationData['city']}');
   print('Country: ${locationData['country']}');
@@ -215,7 +237,7 @@ class DashboardScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Welcome, ${userChart['name'] ?? 'User'}',
+                  'Welcome, ${widget.userChart['name'] ?? 'User'}',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -273,11 +295,12 @@ class DashboardScreen extends StatelessWidget {
   );
 }
 
-  // ✅ ADD THIS METHOD TO BUILD KUNDALI LIST
-  Widget _buildKundaliListSection(BuildContext context) {
-    return FutureBuilder<List<dynamic>>(
-      future: _fetchUserKundalis(context),
-      builder: (context, snapshot) {
+Widget _buildKundaliListSection(BuildContext context) {
+  return FutureBuilder<List<dynamic>>(
+    future: _fetchUserKundalis(context),
+    // ✅ ADD THIS KEY
+    key: ValueKey<int>(_refreshCounter),
+    builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -780,8 +803,8 @@ class DashboardScreen extends StatelessWidget {
 
 void _showKundaliDetails(BuildContext context) {
   // ✅ SAFE data access with location data
-  final chartData = userChart['chart'] ?? userChart;
-  final locationData = userChart['locationData'] ?? {};
+    final chartData = widget.userChart['chart'] ?? widget.userChart;
+    final locationData = widget.userChart['locationData'] ?? {};
   
   showDialog(
     context: context,
@@ -985,7 +1008,7 @@ void _showKundaliDetails(BuildContext context) {
       },
     );
   }
-  
+
 // Helper method for planet rows
 DataRow _buildPlanetRow(String planetName, Map<String, dynamic>? planetData) {
   return DataRow(
@@ -998,8 +1021,8 @@ DataRow _buildPlanetRow(String planetName, Map<String, dynamic>? planetData) {
 }
 
 void _showProfileDialog(BuildContext context) {
-  final chartData = userChart['chart'] ?? userChart;
-  final locationData = userChart['locationData'] ?? {};
+  final chartData = widget.userChart['chart'] ?? widget.userChart;
+  final locationData = widget.userChart['locationData'] ?? {};
   
   showDialog(
     context: context,
@@ -1013,7 +1036,7 @@ void _showProfileDialog(BuildContext context) {
             children: [
               ListTile(
                 leading: const Icon(Icons.person),
-                title: Text(userChart['name'] ?? 'User'),
+                title: Text(widget.userChart['name'] ?? 'User'),
                 subtitle: const Text('Registered User'),
               ),
               
