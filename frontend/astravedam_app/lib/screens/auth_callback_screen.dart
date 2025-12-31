@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/identity_service.dart';
 import 'dashboard_screen.dart';
+import 'package:http/http.dart' as http;  // ADD THIS LINE
 
 class AuthCallbackScreen extends StatefulWidget {
   final String? token;
@@ -31,69 +32,92 @@ class _AuthCallbackScreenState extends State<AuthCallbackScreen> {
     _processAuthCallback();
   }
 
-  Future<void> _processAuthCallback() async {
-    try {
-      // Try to get token from URL parameters (for web)
-      await _extractTokenFromUrl();
-      
-      if (widget.token == null) {
-        throw Exception('No authentication token received');
-      }
-      
-      setState(() {
-        _statusMessage = 'Validating token...';
-      });
-      
-      // Save token
-      await AuthService.saveAuthData(widget.token!, {
-        '_id': widget.userId,
-        'email': 'user@example.com', // We'll get this from backend
-        'name': 'User',
-        'credits': 5,
-      });
-      
-      // Validate with backend
-      final isValid = await AuthService.validateToken();
-      
-      if (!isValid) {
-        throw Exception('Token validation failed');
-      }
-      
-      // Link anonymous charts
-      setState(() {
-        _statusMessage = 'Linking your data...';
-      });
-      
-      final anonId = await IdentityService.getUserIdForApi();
-      await AuthService.linkAnonymousCharts(anonId);
-      await IdentityService.clearAnonymousId();
-      
-      // Success!
-      setState(() {
-        _isProcessing = false;
-        _statusMessage = 'Login successful!';
-      });
-      
-      // Navigate to dashboard after delay
-      await Future.delayed(const Duration(seconds: 1));
-      
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const DashboardScreen(
-            userChart: {}, // We'll fetch this
-          ),
-        ),
-      );
-      
-    } catch (e) {
-      setState(() {
-        _isProcessing = false;
-        _errorMessage = e.toString();
-        _statusMessage = 'Login failed';
-      });
+Future<void> _processAuthCallback() async {
+  try {
+    // Extract token from URL
+    final uri = Uri.base;
+    final token = uri.queryParameters['token'];
+    final userId = uri.queryParameters['userId'];
+    
+    print('🔐 Auth callback received - Token: ${token?.substring(0, 20)}...');
+    
+    if (token == null || token.isEmpty) {
+      throw Exception('No authentication token received');
     }
+    
+    setState(() {
+      _statusMessage = 'Validating token...';
+    });
+    
+    // Save token immediately
+    await AuthService.saveAuthData(token, {
+      '_id': userId,
+      'email': 'Loading...',
+      'name': 'User',
+      'credits': 5,
+    });
+    
+    // Fetch actual user data from backend
+    final response = await http.get(
+      Uri.parse('https://astravedam.onrender.com/api/auth/me'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      
+      if (data['success'] == true) {
+        // Update with real user data
+        await AuthService.saveAuthData(token, data['user']);
+        
+        // Link anonymous charts
+        setState(() {
+          _statusMessage = 'Linking your data...';
+        });
+        
+        final identity = await IdentityService.getIdentity();
+        final anonId = identity['id'];
+        await AuthService.linkAnonymousCharts(anonId);
+        await IdentityService.clearAnonymousId();
+        
+        // Success!
+        setState(() {
+          _isProcessing = false;
+          _statusMessage = 'Login successful!';
+        });
+        
+        // Navigate to dashboard
+        await Future.delayed(const Duration(seconds: 1));
+        
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const DashboardScreen(
+              userChart: {},
+            ),
+          ),
+          (route) => false, // Remove all previous routes
+        );
+        
+      } else {
+        throw Exception(data['error'] ?? 'Login failed');
+      }
+    } else {
+      throw Exception('Server error: ${response.statusCode}');
+    }
+    
+  } catch (e) {
+    print('❌ Auth callback error: $e');
+    setState(() {
+      _isProcessing = false;
+      _errorMessage = e.toString();
+      _statusMessage = 'Login failed';
+    });
   }
+}
 
   Future<void> _extractTokenFromUrl() async {
     // This method would extract token from URL parameters in web

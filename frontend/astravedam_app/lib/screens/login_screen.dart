@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/identity_service.dart';
 import 'dashboard_screen.dart';
+import 'package:flutter/services.dart';  // ADD THIS LINE FOR Clipboard
+import 'dart:html' as html;  // For web
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback? onLoginSuccess;
@@ -36,40 +39,101 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _loginWithGoogle() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      // Open Google login in new window
-      const googleAuthUrl = 'https://astravedam.onrender.com/api/auth/google';
-      
-      if (await canLaunchUrl(Uri.parse(googleAuthUrl))) {
-        await launchUrl(
-          Uri.parse(googleAuthUrl),
-          mode: LaunchMode.externalApplication,
-        );
-        
-        // Note: The OAuth flow will redirect to our app
-        // We need to handle the callback separately
-        // For now, we'll show a message
-        _showOAuthInstructions();
-      } else {
-        setState(() {
-          _errorMessage = 'Could not launch browser. Please check your device settings.';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Login error: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
+  // Direct URL
+  final googleAuthUrl = 'https://astravedam.onrender.com/api/auth/google';
+  
+  // Show dialog with clickable link
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Google Login'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Click the link below to login:'),
+          const SizedBox(height: 15),
+          InkWell(
+            onTap: () {
+              // Copy URL to clipboard
+              Clipboard.setData(ClipboardData(text: googleAuthUrl));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('URL copied to clipboard! Open it in a new tab.')),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.link, color: Colors.blue[600]),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Login with Google',
+                      style: TextStyle(
+                        color: Colors.blue[600],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.content_copy, color: Colors.grey[600]),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Copy this URL and open in new tab:',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          SelectableText(
+            googleAuthUrl,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.blue[600],
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            // Simple window.open for web
+            final jsCode = '''
+              window.open('$googleAuthUrl', '_blank');
+            ''';
+            // Execute JavaScript
+            final jsScript = '''
+              <script>
+                window.open('$googleAuthUrl', '_blank');
+              </script>
+            ''';
+            
+            // For now, just copy URL
+            Clipboard.setData(ClipboardData(text: googleAuthUrl));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('URL copied. Please open it in a new tab.'),
+                duration: Duration(seconds: 5),
+              ),
+            );
+            Navigator.pop(context);
+          },
+          child: const Text('Open Login'),
+        ),
+      ],
+    ),
+  );
+}
 
   void _showOAuthInstructions() {
     showDialog(
@@ -412,55 +476,62 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildGoogleLoginButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _loginWithGoogle,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.grey[800],
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 1,
-          side: BorderSide(color: Colors.grey[300]!),
+  return SizedBox(
+    width: double.infinity,
+    child: ElevatedButton(
+      onPressed: _isLoading ? null : () {
+        // Open Google login in SAME tab
+        final googleAuthUrl = 'https://astravedam.onrender.com/api/auth/google';
+        
+        // For web, use window.location
+        final jsCode = '''
+          window.location.href = '$googleAuthUrl';
+        ''';
+        
+        // Execute JavaScript
+        if (kIsWeb) {
+          html.window.location.href = googleAuthUrl;
+        }
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.grey[800],
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/google_logo.png',
-              height: 24,
-              width: 24,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: NetworkImage(
-                        'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
-                      ),
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Continue with Google',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+        elevation: 1,
+        side: BorderSide(color: Colors.grey[300]!),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Google icon
+          Container(
+            width: 24,
+            height: 24,
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: NetworkImage(
+                  'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
+                ),
+                fit: BoxFit.contain,
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'Continue with Google',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildFeaturesList() {
     return Column(

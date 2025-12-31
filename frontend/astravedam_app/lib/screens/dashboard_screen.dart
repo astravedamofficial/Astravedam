@@ -225,59 +225,66 @@ void _showLoginRequiredDialog(BuildContext context, String featureName, int cred
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-        FutureBuilder<bool>(
-            future: AuthService.isLoggedIn(),
+          FutureBuilder<Map<String, dynamic>?>(
+            future: AuthService.getUserData(),
             builder: (context, snapshot) {
-            final isLoggedIn = snapshot.data ?? false;
-            
-            if (isLoggedIn) {
-                // Show profile and logout
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Icon(Icons.person_outline);
+              }
+              
+              final userData = snapshot.data;
+              final isLoggedIn = userData != null;
+              
+              if (isLoggedIn) {
+                // Show profile dropdown for logged in users
                 return PopupMenuButton(
-                icon: const Icon(Icons.person),
-                itemBuilder: (context) => [
-                    const PopupMenuItem(
-                    value: 'profile',
-                    child: ListTile(
-                        leading: Icon(Icons.person),
-                        title: Text('Profile'),
+                  icon: const Icon(Icons.person),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'profile',
+                      child: ListTile(
+                        leading: const Icon(Icons.person),
+                        title: Text(userData['name'] ?? 'Profile'),
+                        subtitle: Text(userData['email'] ?? ''),
+                      ),
                     ),
-                    ),
                     const PopupMenuItem(
-                    value: 'logout',
-                    child: ListTile(
+                      value: 'logout',
+                      child: ListTile(
                         leading: Icon(Icons.logout),
                         title: Text('Logout'),
+                      ),
                     ),
-                    ),
-                ],
-                onSelected: (value) {
+                  ],
+                  onSelected: (value) {
                     if (value == 'logout') {
-                    _logout(context);
+                      _logout(context);
                     } else if (value == 'profile') {
-                    _showProfileDialog(context);
+                      _showProfileDialog(context);
                     }
-                },
+                  },
                 );
-            } else {
-                // Show login button
+              } else {
+                // Show login button for anonymous users
                 return IconButton(
-                icon: const Icon(Icons.login),
-                onPressed: () {
+                  icon: const Icon(Icons.login),
+                  onPressed: () {
                     Navigator.push(
-                    context,
-                    MaterialPageRoute(
+                      context,
+                      MaterialPageRoute(
                         builder: (context) => LoginScreen(
-                        onLoginSuccess: () {
-                            setState(() {});
-                        },
+                          onLoginSuccess: () {
+                            setState(() {}); // Refresh dashboard
+                          },
                         ),
-                    ),
+                      ),
                     );
-                },
+                  },
+                  tooltip: 'Login',
                 );
-            }
+              }
             },
-        ),
+          ),
         ],
       ),
       body: SafeArea(
@@ -702,15 +709,28 @@ Widget _buildKundaliListSection(BuildContext context) {
               },
             ),
             _buildFeatureCard(
-                context,
-                Icons.self_improvement,
-                'Ask Gods',
-                '1 Credit',
-                Colors.purple,
-                () {
-                    // Show login wall for Ask Gods
-                    _showLoginRequiredDialog(context, 'Ask Gods', 1);
-                },
+              context,
+              Icons.self_improvement,
+              'Ask Gods',
+              '1 Credit',
+              Colors.purple,
+              () async {
+                // Check if user is logged in
+                final isLoggedIn = await AuthService.isLoggedIn();
+                
+                if (!isLoggedIn) {
+                  _showLoginRequiredDialog(context, 'Ask Gods', 1);
+                } else {
+                  // User is logged in, check credits
+                  final credits = await IdentityService.getCreditsBalance();
+                  if (credits >= 1) {
+                    // TODO: Open Ask Gods feature
+                    _showComingSoon(context, 'Ask Gods');
+                  } else {
+                    _showCreditRequiredDialog(context, 'Ask Gods', 1);
+                  }
+                }
+              },
             ),
             _buildFeatureCard(
               context,
