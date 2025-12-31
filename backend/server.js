@@ -173,7 +173,7 @@ app.get('/api/health', (req, res) => {
         
         // Redirect to frontend with token
         const frontendUrl = process.env.NODE_ENV === 'production' 
-          ? 'https://astravedam-app.web.app'  // Your Flutter web URL
+          ? 'https://astravedam-5a3da.web.app'  // Your Flutter web URL
           : 'http://localhost:3001';           // Flutter local URL
         
         res.redirect(`${frontendUrl}/auth/callback?token=${token}&userId=${req.user._id}`);
