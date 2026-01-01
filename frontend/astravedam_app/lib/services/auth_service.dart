@@ -286,6 +286,7 @@ static Future<void> saveAuthData(String token, Map<String, dynamic> userData) as
   
   // Logout
 // Logout
+// Logout
 static Future<void> logout() async {
   try {
     print('🚪 Starting logout process...');
@@ -306,7 +307,7 @@ static Future<void> logout() async {
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
     
-    // ✅ FIX: Also clear localStorage for web
+    // Also clear localStorage for web
     if (kIsWeb) {
       try {
         final storage = html.window.localStorage;
@@ -317,11 +318,24 @@ static Future<void> logout() async {
       }
     }
     
-    // ✅ FIX: Regenerate anonymous ID for fresh anonymous session
+    // Regenerate anonymous ID for fresh anonymous session
     if (wasLoggedIn) {
       print('🔄 Regenerating anonymous ID for new session');
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final random = _generateRandomString(6);
+      
+      // Simple random string generator
+      String getRandomString(int length) {
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        final random = Random();
+        return String.fromCharCodes(
+          Iterable.generate(
+            length,
+            (_) => chars.codeUnitAt(random.nextInt(chars.length)),
+          ),
+        );
+      }
+      
+      final random = getRandomString(6);
       final newAnonId = 'anon_${timestamp}_$random';
       
       await prefs.setString('astravedam_user_id', newAnonId);
