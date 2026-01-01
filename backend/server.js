@@ -409,64 +409,54 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/api/charts', optionalAuth, async (req, res) => {
-    try {
-      let query = {};
-      
-      // Priority 1: If user is logged in, get their charts
-      if (req.user) {
-        query.ownerUserId = req.user._id;
-        console.log(`📊 Fetching charts for registered user: ${req.user._id}`);
-      } 
-      // Priority 2: If anonymous userId provided in query
-      else if (req.query.userId) {
-        query.userId = req.query.userId;
-        console.log(`📊 Fetching charts for anonymous user: ${req.query.userId}`);
-      }
-      // Priority 3: If both user is logged in AND anonymous ID provided
-      // (This happens when user logs in for first time and we need to merge)
-      else if (req.user && req.query.anonymousUserId) {
-        // Return charts from BOTH sources for merging
-        const registeredCharts = await UserChart.find({ ownerUserId: req.user._id });
-        const anonymousCharts = await UserChart.find({ userId: req.query.anonymousUserId });
-        
-        const allCharts = [...registeredCharts, ...anonymousCharts];
-        
-        return res.json({
-          success: true,
-          charts: allCharts,
-          count: allCharts.length,
-          source: 'merged'
-        });
-      }
-      else {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'User identifier required. Please login or provide userId.' 
-        });
-      }
+  try {
+    let query = {};
     
-      const charts = await UserChart.find(query)
-        .sort({ createdAt: -1 })
-        .select('-__v'); // Exclude version field
-      
-      console.log(`📊 Found ${charts.length} charts`);
-      
-      res.json({
-        success: true,
-        charts: charts,
-        count: charts.length,
-        source: req.user ? 'registered' : 'anonymous'
-      });
-      
-    } catch (error) {
-      console.error('❌ /api/charts error:', error);
-      res.status(500).json({ 
-        success: false,
-        error: 'Internal server error',
-        details: error.message 
+    // Priority 1: If user is logged in, get their charts
+    if (req.user) {
+      // ✅ FIX: Get charts where user is owner OR where userId matches (linked charts)
+      query = {
+        $or: [
+          { ownerUserId: req.user._id },
+          { userId: req.user._id.toString() } // Also check userId field
+        ]
+      };
+      console.log(`📊 Fetching charts for registered user: ${req.user._id}`);
+    } 
+    // Priority 2: If anonymous userId provided in query
+    else if (req.query.userId) {
+      query.userId = req.query.userId;
+      console.log(`📊 Fetching charts for anonymous user: ${req.query.userId}`);
+    }
+    else {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'User identifier required. Please login or provide userId.' 
       });
     }
-  });
+    
+    const charts = await UserChart.find(query)
+      .sort({ createdAt: -1 })
+      .select('-__v');
+    
+    console.log(`📊 Found ${charts.length} charts`);
+    
+    res.json({
+      success: true,
+      charts: charts,
+      count: charts.length,
+      source: req.user ? 'registered' : 'anonymous'
+    });
+    
+  } catch (error) {
+    console.error('❌ /api/charts error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
+});
   
 // Start server
 app.listen(PORT, '0.0.0.0', () => {

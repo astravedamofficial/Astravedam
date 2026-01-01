@@ -109,6 +109,9 @@ static Future<String> _getOrCreateAnonymousId() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_userIdKey);
+      await prefs.remove('flutter.$_userIdKey');
+      await prefs.remove('astravedam_user_id');
+      print('🗑️ Cleared all anonymous ID keys');
     } catch (e) {
       print('⚠️ Error clearing anonymous ID: $e');
     }

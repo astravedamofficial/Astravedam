@@ -285,23 +285,54 @@ static Future<void> saveAuthData(String token, Map<String, dynamic> userData) as
   }
   
   // Logout
-  static Future<void> logout() async {
-    try {
-      await _initPrefs();
-      
-      // Clear secure storage
-      await _secureStorage.delete(key: _tokenKey);
-      
-      // Clear shared preferences
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_tokenKey);
-      await prefs.remove(_userKey);
-      
-      print('✅ Logged out successfully');
-    } catch (e) {
-      print('❌ Error during logout: $e');
+// Logout
+static Future<void> logout() async {
+  try {
+    print('🚪 Starting logout process...');
+    
+    // Get current user data before clearing
+    final userData = await getUserData();
+    final wasLoggedIn = userData != null;
+    
+    if (wasLoggedIn) {
+      print('👤 User was logged in as: ${userData?['email']}');
     }
+    
+    // Clear secure storage
+    await _secureStorage.delete(key: _tokenKey);
+    
+    // Clear shared preferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userKey);
+    
+    // ✅ FIX: Also clear localStorage for web
+    if (kIsWeb) {
+      try {
+        final storage = html.window.localStorage;
+        storage.remove(_tokenKey);
+        storage.remove(_userKey);
+      } catch (e) {
+        print('⚠️ localStorage clear error: $e');
+      }
+    }
+    
+    // ✅ FIX: Regenerate anonymous ID for fresh anonymous session
+    if (wasLoggedIn) {
+      print('🔄 Regenerating anonymous ID for new session');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final random = _generateRandomString(6);
+      final newAnonId = 'anon_${timestamp}_$random';
+      
+      await prefs.setString('astravedam_user_id', newAnonId);
+      print('✅ New anonymous ID created: $newAnonId');
+    }
+    
+    print('✅ Logout completed successfully');
+  } catch (e) {
+    print('❌ Error during logout: $e');
   }
+}
   
   // Generate PKCE code verifier and challenge
   static String _generateCodeVerifier() {

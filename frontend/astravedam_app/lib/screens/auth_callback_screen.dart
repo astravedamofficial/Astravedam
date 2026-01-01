@@ -66,10 +66,14 @@ Future<void> _processAuthCallback() async {
       throw Exception('No authentication token received');
     }
     
-    
     setState(() {
       _statusMessage = 'Validating token...';
     });
+    
+    // ✅ FIX 1: Get anonymous ID BEFORE saving Google token
+    final prefs = await SharedPreferences.getInstance();
+    final anonymousUserId = prefs.getString('astravedam_user_id');
+    print('👤 Anonymous user ID to link: $anonymousUserId');
     
     // Save token immediately
     await AuthService.saveAuthData(token, {
@@ -99,15 +103,20 @@ Future<void> _processAuthCallback() async {
           print('🧹 Cleared URL parameters');
         }
         
-        // Link anonymous charts
-        setState(() {
-          _statusMessage = 'Linking your data...';
-        });
-        
-        final identity = await IdentityService.getIdentity();
-        final anonId = identity['id'];
-        await AuthService.linkAnonymousCharts(anonId);
-        await IdentityService.clearAnonymousId();
+        // ✅ FIX 2: Link anonymous charts using the saved anonymousUserId
+        if (anonymousUserId != null && anonymousUserId.isNotEmpty) {
+          setState(() {
+            _statusMessage = 'Linking your data...';
+          });
+          
+          print('🔗 Linking anonymous charts from: $anonymousUserId');
+          final linked = await AuthService.linkAnonymousCharts(anonymousUserId);
+          print('✅ Linking result: $linked');
+          
+          // Clear anonymous ID after linking
+          await prefs.remove('astravedam_user_id');
+          print('🗑️ Cleared anonymous ID');
+        }
         
         // Success!
         setState(() {
@@ -125,7 +134,7 @@ Future<void> _processAuthCallback() async {
               userChart: {},
             ),
           ),
-          (route) => false, // Remove all previous routes
+          (route) => false,
         );
         
       } else {
@@ -137,6 +146,7 @@ Future<void> _processAuthCallback() async {
     
   } catch (e) {
     print('❌ Auth callback error: $e');
+    print('❌ Stack trace: $e');
     setState(() {
       _isProcessing = false;
       _errorMessage = e.toString();
