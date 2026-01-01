@@ -5,7 +5,10 @@ import '../services/auth_service.dart';
 import '../services/identity_service.dart';
 import 'dashboard_screen.dart';
 import 'package:flutter/services.dart';  // ADD THIS LINE FOR Clipboard
-import 'dart:html' as html;  // For web
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+// Conditional import for web only
+import 'dart:html' as html if (dart.library.io) 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class LoginScreen extends StatefulWidget {
@@ -38,101 +41,39 @@ class _LoginScreenState extends State<LoginScreen> {
     // For now, we'll handle callback in a separate screen
   }
 
-  void _loginWithGoogle() async {
-  // Direct URL
+void _loginWithGoogle() async {
+  setState(() {
+    _isLoading = true;
+  });
+  
+  // Simple direct URL
   final googleAuthUrl = 'https://astravedam.onrender.com/api/auth/google';
   
-  // Show dialog with clickable link
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Google Login'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Click the link below to login:'),
-          const SizedBox(height: 15),
-          InkWell(
-            onTap: () {
-              // Copy URL to clipboard
-              Clipboard.setData(ClipboardData(text: googleAuthUrl));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('URL copied to clipboard! Open it in a new tab.')),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.link, color: Colors.blue[600]),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Login with Google',
-                      style: TextStyle(
-                        color: Colors.blue[600],
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  Icon(Icons.content_copy, color: Colors.grey[600]),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Copy this URL and open in new tab:',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-          SelectableText(
-            googleAuthUrl,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.blue[600],
-              decoration: TextDecoration.underline,
-            ),
+  print('🔗 Opening Google login: $googleAuthUrl');
+  
+  // For web, open in same tab
+  if (kIsWeb) {
+    html.window.location.href = googleAuthUrl;
+  } else {
+    // For mobile (future)
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Google Login'),
+        content: Text('Open this URL in your browser:\n\n$googleAuthUrl'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            // Simple window.open for web
-            final jsCode = '''
-              window.open('$googleAuthUrl', '_blank');
-            ''';
-            // Execute JavaScript
-            final jsScript = '''
-              <script>
-                window.open('$googleAuthUrl', '_blank');
-              </script>
-            ''';
-            
-            // For now, just copy URL
-            Clipboard.setData(ClipboardData(text: googleAuthUrl));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('URL copied. Please open it in a new tab.'),
-                duration: Duration(seconds: 5),
-              ),
-            );
-            Navigator.pop(context);
-          },
-          child: const Text('Open Login'),
-        ),
-      ],
-    ),
-  );
+    );
+  }
+  
+  setState(() {
+    _isLoading = false;
+  });
 }
 
   void _showOAuthInstructions() {
@@ -475,24 +416,11 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildGoogleLoginButton() {
+Widget _buildGoogleLoginButton() {
   return SizedBox(
     width: double.infinity,
     child: ElevatedButton(
-      onPressed: _isLoading ? null : () {
-        // Open Google login in SAME tab
-        final googleAuthUrl = 'https://astravedam.onrender.com/api/auth/google';
-        
-        // For web, use window.location
-        final jsCode = '''
-          window.location.href = '$googleAuthUrl';
-        ''';
-        
-        // Execute JavaScript
-        if (kIsWeb) {
-          html.window.location.href = googleAuthUrl;
-        }
-      },
+      onPressed: _isLoading ? null : _loginWithGoogle,
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
         foregroundColor: Colors.grey[800],

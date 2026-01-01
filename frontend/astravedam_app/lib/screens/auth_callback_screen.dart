@@ -6,6 +6,9 @@ import '../services/auth_service.dart';
 import '../services/identity_service.dart';
 import 'dashboard_screen.dart';
 import 'package:http/http.dart' as http;  // ADD THIS LINE
+import 'package:flutter/foundation.dart' show kIsWeb; // ADD THIS
+// Conditional import for web only
+import 'dart:html' as html if (dart.library.io) 'dart:io'; // ADD THIS
 
 class AuthCallbackScreen extends StatefulWidget {
   final String? token;
@@ -34,16 +37,35 @@ class _AuthCallbackScreenState extends State<AuthCallbackScreen> {
 
 Future<void> _processAuthCallback() async {
   try {
-    // Extract token from URL
-    final uri = Uri.base;
-    final token = uri.queryParameters['token'];
-    final userId = uri.queryParameters['userId'];
+    print('🎯 Starting auth callback processing');
     
-    print('🔐 Auth callback received - Token: ${token?.substring(0, 20)}...');
+    // Get token from constructor first
+    String? token = widget.token;
+    String? userId = widget.userId;
+    
+    print('🎯 Token from constructor: ${token != null}');
+    print('🎯 UserId from constructor: $userId');
+    
+    // If not in constructor, check URL hash
+    if ((token == null || token.isEmpty) && kIsWeb) {
+      final uri = Uri.base;
+      final fragment = uri.fragment;
+      print('🔗 Checking URL fragment: $fragment');
+      
+      if (fragment.isNotEmpty && fragment.contains('token=')) {
+        final params = Uri.splitQueryString(fragment);
+        token = params['token'];
+        userId = params['userId'];
+        
+        print('🎯 Found in URL hash - Token: ${token?.substring(0, 20)}...');
+        print('🎯 UserId: $userId');
+      }
+    }
     
     if (token == null || token.isEmpty) {
       throw Exception('No authentication token received');
     }
+    
     
     setState(() {
       _statusMessage = 'Validating token...';
@@ -72,6 +94,10 @@ Future<void> _processAuthCallback() async {
       if (data['success'] == true) {
         // Update with real user data
         await AuthService.saveAuthData(token, data['user']);
+        if (kIsWeb) {
+          html.window.history.replaceState({}, '', '/');
+          print('🧹 Cleared URL parameters');
+        }
         
         // Link anonymous charts
         setState(() {

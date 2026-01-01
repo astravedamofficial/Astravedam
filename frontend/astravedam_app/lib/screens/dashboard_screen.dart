@@ -225,6 +225,23 @@ void _showLoginRequiredDialog(BuildContext context, String featureName, int cred
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          // DEBUG BUTTON - Temporary (Remove after fixing)
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: () async {
+              print('🐛 Debug button pressed');
+              await AuthService.debugStorage();
+              
+              // Also show a snackbar
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Debug info printed to console (F12)'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            tooltip: 'Debug Storage',
+          ),
           FutureBuilder<Map<String, dynamic>?>(
             future: AuthService.getUserData(),
             builder: (context, snapshot) {
@@ -265,23 +282,39 @@ void _showLoginRequiredDialog(BuildContext context, String featureName, int cred
                   },
                 );
               } else {
-                // Show login button for anonymous users
-                return IconButton(
-                  icon: const Icon(Icons.login),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => LoginScreen(
-                          onLoginSuccess: () {
-                            setState(() {}); // Refresh dashboard
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                  tooltip: 'Login',
-                );
+                  // Show login button for anonymous users
+                  return IconButton(
+                    icon: const Icon(Icons.login),
+                    onPressed: () async {
+                      // First check if we're already logged in (just in case)
+                      final isLoggedIn = await AuthService.isLoggedIn();
+                      
+                      if (isLoggedIn) {
+                        // Already logged in, refresh
+                        setState(() {});
+                      } else {
+                        // Go to login screen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => LoginScreen(
+                              onLoginSuccess: () {
+                                // After login, replace entire app with new dashboard
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const DashboardScreen(userChart: {}),
+                                  ),
+                                  (route) => false, // Remove all previous screens
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    tooltip: 'Login',
+                  );
               }
             },
           ),

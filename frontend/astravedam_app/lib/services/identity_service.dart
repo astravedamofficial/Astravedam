@@ -59,27 +59,50 @@ class IdentityService {
   }
   
   // Private: Get or create anonymous ID
-  static Future<String> _getOrCreateAnonymousId() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final existingId = prefs.getString(_userIdKey);
-      
-      if (existingId != null && existingId.isNotEmpty) {
-        return existingId;
-      }
-      
-      // Generate new ID: anon_timestamp_random
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final random = _generateRandomString(6);
-      final newUserId = 'anon_${timestamp}_$random';
-      
-      await prefs.setString(_userIdKey, newUserId);
-      return newUserId;
-    } catch (e) {
-      // Fallback
-      return 'anon_${DateTime.now().millisecondsSinceEpoch}';
+static Future<String> _getOrCreateAnonymousId() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Try to get existing ID
+    String? existingId = prefs.getString(_userIdKey);
+    
+    // If not found, try with flutter. prefix
+    if (existingId == null || existingId.isEmpty) {
+      existingId = prefs.getString('flutter.$_userIdKey');
     }
+    
+    // If still not found, try just 'astravedam_user_id' without prefix
+    if (existingId == null || existingId.isEmpty) {
+      existingId = prefs.getString('astravedam_user_id');
+    }
+    
+    // If we found an ID, return it
+    if (existingId != null && existingId.isNotEmpty) {
+      print('✅ Reusing existing anonymous ID: ${existingId.substring(0, 20)}...');
+      
+      // Make sure it's also saved with the correct key
+      await prefs.setString(_userIdKey, existingId);
+      
+      return existingId;
+    }
+    
+    // Create new ID
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final random = _generateRandomString(6);
+    final newUserId = 'anon_${timestamp}_$random';
+    
+    // Save with BOTH keys
+    await prefs.setString(_userIdKey, newUserId);
+    await prefs.setString('astravedam_user_id', newUserId);
+    
+    print('✅ Created new anonymous ID: $newUserId');
+    return newUserId;
+  } catch (e) {
+    print('❌ Error creating anonymous ID: $e');
+    // Emergency fallback
+    return 'anon_${DateTime.now().millisecondsSinceEpoch}';
   }
+}
   
   // Clear anonymous ID (used when user registers)
   static Future<void> clearAnonymousId() async {

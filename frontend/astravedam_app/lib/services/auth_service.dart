@@ -3,6 +3,11 @@ import 'dart:math';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+// Web-only imports
+import 'dart:html' as html if (dart.library.io) 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AuthService {
   static const String _tokenKey = 'auth_jwt_token';
@@ -20,12 +25,86 @@ class AuthService {
   }
   
   // Check if user is logged in
-  static Future<bool> isLoggedIn() async {
-    await _initPrefs();
-    final token = await getToken();
-    return token != null && token.isNotEmpty;
+static Future<bool> isLoggedIn() async {
+  try {
+    // Try shared_preferences first
+    final prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString(_tokenKey);
+    
+    print('🔍 Checking login - SharedPrefs token: ${token != null ? "Found" : "Not found"}');
+    
+    // If not found in shared_preferences, check localStorage (web only)
+    if ((token == null || token.isEmpty) && kIsWeb) {
+      try {
+        // Access localStorage directly
+        final storage = html.window.localStorage;
+        token = storage[_tokenKey];
+        print('🔍 Checking login - localStorage token: ${token != null ? "Found" : "Not found"}');
+        
+        // If found in localStorage, save to shared_preferences for consistency
+        if (token != null && token.isNotEmpty) {
+          await prefs.setString(_tokenKey, token);
+          print('✅ Copied token from localStorage to SharedPreferences');
+        }
+      } catch (e) {
+        print('⚠️ localStorage access error: $e');
+      }
+    }
+    
+    final hasToken = token != null && token.isNotEmpty;
+    print('🔐 Login check result: $hasToken');
+    
+    // If we have a token, validate it
+    if (hasToken) {
+      final isValid = await validateToken();
+      if (!isValid) {
+        print('❌ Token invalid, clearing');
+        await logout();
+        return false;
+      }
+    }
+    
+    return hasToken;
+  } catch (e) {
+    print('❌ Error in isLoggedIn: $e');
+    return false;
   }
+}
+  // DEBUG METHOD - Check all storage locations
+static Future<void> debugStorage() async {
+  print('🔍 DEBUG: Checking all storage locations');
   
+  try {
+    // Check SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final spToken = prefs.getString(_tokenKey);
+    final spUser = prefs.getString(_userKey);
+    
+    print('📁 SharedPreferences:');
+    print('   Token: ${spToken != null ? "✓ Found (${spToken.substring(0, 20)}...)" : "✗ Not found"}');
+    print('   User: ${spUser != null ? "✓ Found" : "✗ Not found"}');
+    
+    // Check localStorage (web only)
+    if (kIsWeb) {
+      try {
+        final storage = html.window.localStorage;
+        final lsToken = storage[_tokenKey];
+        final lsUser = storage[_userKey];
+        
+        print('🌐 localStorage:');
+        print('   Token: ${lsToken != null ? "✓ Found (${lsToken.substring(0, 20)}...)" : "✗ Not found"}');
+        print('   User: ${lsUser != null ? "✓ Found" : "✗ Not found"}');
+        
+        // List all localStorage keys
+        print('   All keys: ${storage.keys.toList()}');
+      } catch (e) {
+        print('⚠️ localStorage access error: $e');
+      }
+    }
+  } catch (e) {
+    print('❌ Debug error: $e');
+  }
+}
   // Get JWT token
   static Future<String?> getToken() async {
     try {
@@ -46,25 +125,43 @@ class AuthService {
   }
   
   // Save authentication data
-  static Future<void> saveAuthData(String token, Map<String, dynamic> userData) async {
-    try {
-      await _initPrefs();
-      
-      // Save token to secure storage
-      await _secureStorage.write(key: _tokenKey, value: token);
-      
-      // Also save to shared preferences for web compatibility
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, token);
-      
-      // Save user data
-      await prefs.setString(_userKey, json.encode(userData));
-      
-      print('✅ Auth data saved successfully');
-    } catch (e) {
-      print('❌ Error saving auth data: $e');
+static Future<void> saveAuthData(String token, Map<String, dynamic> userData) async {
+  try {
+    print('💾 Saving auth data - Token length: ${token.length}');
+    
+    // Save to shared preferences (works on web)
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Save token
+    await prefs.setString(_tokenKey, token);
+    print('✅ Token saved to SharedPreferences');
+    
+    // Save user data
+    await prefs.setString(_userKey, json.encode(userData));
+    print('✅ User data saved: ${userData['email'] ?? "No email"}');
+    
+    // Also save to localStorage directly (for web compatibility)
+    if (kIsWeb) {
+      try {
+        final storage = html.window.localStorage;
+        storage[_tokenKey] = token;
+        storage[_userKey] = json.encode(userData);
+        print('✅ Token saved to localStorage');
+      } catch (e) {
+        print('⚠️ localStorage error: $e');
+      }
     }
+    
+    // Verify save was successful
+    final savedToken = prefs.getString(_tokenKey);
+    print('🔍 Verification - Saved token matches: ${savedToken == token}');
+    
+  } catch (e) {
+    print('❌ Error saving auth data: $e');
+    rethrow;
   }
+}
+
   
   // Get user data
   static Future<Map<String, dynamic>?> getUserData() async {

@@ -176,7 +176,10 @@ app.get('/api/health', (req, res) => {
           ? 'https://astravedam-5a3da.web.app'  // Your Flutter web URL
           : 'http://localhost:3001';           // Flutter local URL
         
-          res.redirect(`${frontendUrl}/#/auth-callback?token=${token}&userId=${req.user._id}`);
+          // Simple hash format without path
+        const redirectUrl = `${frontendUrl}#token=${token}&userId=${req.user._id}`;
+        console.log('🔗 Redirecting to:', redirectUrl);
+        res.redirect(redirectUrl);
       } catch (error) {
         console.error('Callback error:', error);
         res.redirect(`${frontendUrl}/auth/error`);
