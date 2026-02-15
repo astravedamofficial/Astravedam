@@ -217,46 +217,6 @@ app.get('/api/health', (req, res) => {
     });
   });
   
-  // 6. Link anonymous charts to user account
-  app.post('/api/auth/link-charts', optionalAuth, async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          error: 'Authentication required'
-        });
-      }
-      
-      const { anonymousUserId } = req.body;
-      
-      if (!anonymousUserId) {
-        return res.status(400).json({
-          success: false,
-          error: 'anonymousUserId is required'
-        });
-      }
-      
-      // Find all charts with this anonymous ID
-      const charts = await UserChart.find({ userId: anonymousUserId });
-      
-      // Link them to the user
-      for (const chart of charts) {
-        chart.ownerUserId = req.user._id;
-        await chart.save();
-      }
-      
-      res.json({
-        success: true,
-        linkedCount: charts.length,
-        message: `Successfully linked ${charts.length} charts to your account`
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
   
   // 7. Auth failure route
   app.get('/auth/failed', (req, res) => {
@@ -340,29 +300,31 @@ app.post('/api/calculate-chart', optionalAuth, async (req, res) => {
         console.log(`♻️ Reset previous primaries`);
       }
     
-    // ✅ Create the chart (same as before with fixed logic)
-    // ✅ Create the chart with dual ownership
-    const userChart = new UserChart({
-        // Anonymous system
-        userId: userId || null,
-        ownerUserId: req.user?._id || null,
-        personName: personName || name || 'User',
-        isPrimary: (userId || req.user) ? (setAsPrimary === true) : true,
-        
-        // All existing fields (NO CHANGES)
-        name: name || 'User',
-        birthDate: new Date(date),
-        birthTime: time,
-        location: location,
-        formattedAddress: geoResult.formatted,
-        latitude: geoResult.latitude,
-        longitude: geoResult.longitude,
-        timezone: geoResult.timezone,
-        country: geoResult.country,
-        city: geoResult.city,
-        placeId: geoResult.place_id,
-        chartData: chart
-    });
+
+// Create the chart - Notice we NEVER set both fields
+const userChart = new UserChart({
+  // For anonymous users: only set userId
+  // For registered users: only set ownerUserId
+  userId: !req.user ? (userId || null) : null,  // Only set if NOT logged in
+  ownerUserId: req.user?._id || null,            // Only set if logged in
+  
+  personName: personName || name || 'User',
+  isPrimary: false,  // Always false (or remove this field entirely)
+  
+  // All existing fields (NO CHANGES)
+  name: name || 'User',
+  birthDate: new Date(date),
+  birthTime: time,
+  location: location,
+  formattedAddress: geoResult.formatted,
+  latitude: geoResult.latitude,
+  longitude: geoResult.longitude,
+  timezone: geoResult.timezone,
+  country: geoResult.country,
+  city: geoResult.city,
+  placeId: geoResult.place_id,
+  chartData: chart
+});
     
     const savedChart = await userChart.save();
     console.log('✅ Saved chart. ID:', savedChart._id, '| User:', savedChart.userId, '| Primary:', savedChart.isPrimary);

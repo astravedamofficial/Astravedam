@@ -8,8 +8,8 @@ import 'login_screen.dart';  // ADD THIS LINE
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> userChart;
-  
-  const DashboardScreen({super.key, required this.userChart});
+  final bool forceRefresh;  // ✅ ADD THIS
+  const DashboardScreen({super.key, required this.userChart, this.forceRefresh = false,});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -20,6 +20,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // ✅ ADD THIS VARIABLE
   int _refreshCounter = 0;
   
+   // ✅ ADD THIS initState METHOD
+  @override
+  void initState() {
+    super.initState();
+    if (widget.forceRefresh) {
+      // Trigger immediate refresh after widget is built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _refreshKundaliList();
+      });
+    }
+  }
   // ✅ ADD THIS METHOD
   void _refreshKundaliList() {
     setState(() {
@@ -605,49 +616,19 @@ Widget _buildKundaliListSection(BuildContext context) {
                   padding: const EdgeInsets.all(12),
                   child: Row(
                     children: [
-                      // Primary Badge
-                      if (isPrimary)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.amber[50],
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.amber),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.star,
-                                size: 12,
-                                color: Colors.amber[700],
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Primary',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.amber[700],
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'Secondary',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey[600],
-                            ),
-                          ),
+                      
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.deepPurple[50],
+                          shape: BoxShape.circle,
                         ),
+                        child: Icon(
+                          Icons.person,
+                          size: 16,
+                          color: Colors.deepPurple[600],
+                        ),
+                      ),
                       
                       const SizedBox(width: 12),
                       

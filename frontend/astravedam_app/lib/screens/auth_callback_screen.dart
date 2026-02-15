@@ -34,19 +34,62 @@ class _AuthCallbackScreenState extends State<AuthCallbackScreen> {
     super.initState();
     _processAuthCallback();
   }
+// In auth_callback_screen.dart, replace the _processAuthCallback method:
 
 Future<void> _processAuthCallback() async {
   try {
     print('🎯 Starting auth callback processing');
+    print('🔍 STEP 1: Checking all storage for anonymous ID...');
     
-    // Get token from constructor first
+    // ✅ Get ALL possible anonymous IDs
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Get all keys to see what's in storage
+    final allKeys = prefs.getKeys();
+    print('📋 All SharedPreferences keys: $allKeys');
+    
+    // Try every possible key name
+    final possibleKeys = [
+      'astravedam_user_id',
+      'flutter.astravedam_user_id',
+      'user_id',
+      'anonymous_id',
+      'astravedam_anon_id'
+    ];
+    
+    String? foundId;
+    for (var key in possibleKeys) {
+      final value = prefs.getString(key);
+      if (value != null && value.isNotEmpty) {
+        print('✅ Found ID at key "$key": $value');
+        foundId = value;
+        break;
+      }
+    }
+    
+    // If still not found, check if we have any key containing 'anon' or 'user'
+    if (foundId == null) {
+      for (var key in allKeys) {
+        if (key.toLowerCase().contains('anon') || key.toLowerCase().contains('user')) {
+          final value = prefs.getString(key);
+          if (value != null && value.isNotEmpty && value.startsWith('anon_')) {
+            print('✅ Found potential anonymous ID at key "$key": $value');
+            foundId = value;
+            break;
+          }
+        }
+      }
+    }
+    
+    print('👤 FINAL anonymous ID to link: $foundId');
+    
+    // Get token from URL
     String? token = widget.token;
     String? userId = widget.userId;
     
-    print('🎯 Token from constructor: ${token != null}');
-    print('🎯 UserId from constructor: $userId');
+    print('🎯 Token from widget: ${token != null}');
+    print('🎯 UserId from widget: $userId');
     
-    // If not in constructor, check URL hash
     if ((token == null || token.isEmpty) && kIsWeb) {
       final uri = Uri.base;
       final fragment = uri.fragment;
@@ -57,8 +100,7 @@ Future<void> _processAuthCallback() async {
         token = params['token'];
         userId = params['userId'];
         
-        print('🎯 Found in URL hash - Token: ${token?.substring(0, 20)}...');
-        print('🎯 UserId: $userId');
+        print('🎯 Found in URL - Token exists: ${token != null}');
       }
     }
     
@@ -70,12 +112,8 @@ Future<void> _processAuthCallback() async {
       _statusMessage = 'Validating token...';
     });
     
-    // ✅ FIX 1: Get anonymous ID BEFORE saving Google token
-    final prefs = await SharedPreferences.getInstance();
-    final anonymousUserId = prefs.getString('astravedam_user_id');
-    print('👤 Anonymous user ID to link: $anonymousUserId');
-    
-    // Save token immediately
+    // Save token
+    print('💾 Saving initial auth data...');
     await AuthService.saveAuthData(token, {
       '_id': userId,
       'email': 'Loading...',
@@ -83,7 +121,8 @@ Future<void> _processAuthCallback() async {
       'credits': 5,
     });
     
-    // Fetch actual user data from backend
+    // Fetch user data
+    print('📡 Fetching user data from backend...');
     final response = await http.get(
       Uri.parse('https://astravedam.onrender.com/api/auth/me'),
       headers: {
@@ -96,42 +135,32 @@ Future<void> _processAuthCallback() async {
       final data = json.decode(response.body);
       
       if (data['success'] == true) {
-        // Update with real user data
+        print('✅ User data received: ${data['user']['email']}');
         await AuthService.saveAuthData(token, data['user']);
+        
         if (kIsWeb) {
           html.window.history.replaceState({}, '', '/');
           print('🧹 Cleared URL parameters');
         }
         
-        // ✅ FIX 2: Link anonymous charts using the saved anonymousUserId
-        if (anonymousUserId != null && anonymousUserId.isNotEmpty) {
-          setState(() {
-            _statusMessage = 'Linking your data...';
-          });
-          
-          print('🔗 Linking anonymous charts from: $anonymousUserId');
-          final linked = await AuthService.linkAnonymousCharts(anonymousUserId);
-          print('✅ Linking result: $linked');
-          
-          // Clear anonymous ID after linking
-          await prefs.remove('astravedam_user_id');
-          print('🗑️ Cleared anonymous ID');
-        }
-        
-        // Success!
+
         setState(() {
-          _isProcessing = false;
-          _statusMessage = 'Login successful!';
+           _statusMessage = 'Login successful!';
         });
+    
         
         // Navigate to dashboard
         await Future.delayed(const Duration(seconds: 1));
         
+        if (!mounted) return;
+        
+        print('🚀 Navigating to dashboard with force refresh');
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
             builder: (context) => const DashboardScreen(
               userChart: {},
+              forceRefresh: true,
             ),
           ),
           (route) => false,
@@ -146,7 +175,6 @@ Future<void> _processAuthCallback() async {
     
   } catch (e) {
     print('❌ Auth callback error: $e');
-    print('❌ Stack trace: $e');
     setState(() {
       _isProcessing = false;
       _errorMessage = e.toString();

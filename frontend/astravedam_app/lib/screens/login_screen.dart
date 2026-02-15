@@ -214,9 +214,7 @@ void _loginWithGoogle() async {
   }
 
   void _onLoginSuccess() async {
-    // Link any anonymous charts to the new account
-    final anonId = await IdentityService.getUserIdForApi();
-    await AuthService.linkAnonymousCharts(anonId);
+
     
     // Clear anonymous ID since we're now registered
     await IdentityService.clearAnonymousId();

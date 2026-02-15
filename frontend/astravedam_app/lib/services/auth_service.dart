@@ -253,39 +253,6 @@ static Future<void> saveAuthData(String token, Map<String, dynamic> userData) as
     }
   }
   
-  // Link anonymous charts to registered account
-  static Future<bool> linkAnonymousCharts(String anonymousUserId) async {
-    try {
-      final token = await getToken();
-      
-      if (token == null) return false;
-      
-      final response = await http.post(
-        Uri.parse('https://astravedam.onrender.com/api/auth/link-charts'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'anonymousUserId': anonymousUserId,
-        }),
-      );
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        print('✅ Charts linked: ${data['linkedCount']} charts');
-        return data['success'] == true;
-      }
-      
-      return false;
-    } catch (e) {
-      print('❌ Error linking charts: $e');
-      return false;
-    }
-  }
-  
-  // Logout
-// Logout
 // Logout
 static Future<void> logout() async {
   try {

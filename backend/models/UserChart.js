@@ -22,10 +22,6 @@ const userChartSchema = new mongoose.Schema({
     default: 'User'
   },
   
-  isPrimary: {
-    type: Boolean,
-    default: false
-  },
   
   // 5. ALL EXISTING FIELDS (NO CHANGES)
   name: String,
