@@ -238,8 +238,13 @@ app.post('/api/calculate-chart', optionalAuth, async (req, res) => {
         time, 
         location, 
         userId,          // Anonymous user ID
-        personName,      
-        setAsPrimary     
+        personName,
+        // 🆕 NEW FIELDS from frontend
+        latitude,        // Pre-geocoded lat
+        longitude,       // Pre-geocoded lon
+        city,            // City name
+        country,         // Country name
+        formattedAddress // Full formatted address
       } = req.body;
   
 
@@ -251,15 +256,34 @@ app.post('/api/calculate-chart', optionalAuth, async (req, res) => {
         });
       }
       
-      // 1. Geocode the location
-      console.log('📍 Step 1: Geocoding location...');
-      const geoResult = await geocodeLocation(location);
-      
-      if (!geoResult.success) {
-        return res.status(400).json({
-          success: false,
-          error: `Could not find location: ${location}. Please enter a valid city name.`
-        });
+      // 1. Get location data (either from frontend or geocode)
+      console.log('📍 Step 1: Getting location data...');
+      let geoResult;
+
+      if (latitude && longitude) {
+        // Use coordinates from frontend
+        console.log('📍 Using pre-geocoded coordinates from frontend');
+        geoResult = {
+          success: true,
+          latitude: latitude,
+          longitude: longitude,
+          formatted: formattedAddress || location,
+          city: city || '',
+          country: country || '',
+          timezone: 'UTC', // Default timezone
+          place_id: ''
+        };
+      } else {
+        // Fallback to geocoding
+        console.log('📍 Geocoding location...');
+        geoResult = await geocodeLocation(location);
+        
+        if (!geoResult.success) {
+          return res.status(400).json({
+            success: false,
+            error: `Could not find location: ${location}. Please enter a valid city name.`
+          });
+        }
       }
       
       console.log('📍 Geocoding result:', geoResult);
