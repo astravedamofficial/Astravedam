@@ -11,7 +11,7 @@ import 'dart:html' as html if (dart.library.io) 'dart:io';
 import 'screens/dashboard_screen.dart';  // ADD THIS LINE
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:astravedam_app/services/identity_service.dart'; // ADD THIS LINE
-
+import 'constants.dart';
 void main() {
   runApp(const AstravedamApp());
 }
@@ -103,7 +103,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Future<void> _fetchUserData(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('https://astravedam.onrender.com/api/auth/me'),
+        Uri.parse('${AppConstants.baseUrl}${AppConstants.authMeEndpoint}'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (token != null) {
         try {
           final response = await http.get(
-            Uri.parse('https://astravedam.onrender.com/api/auth/me'),
+            Uri.parse('${AppConstants.baseUrl}${AppConstants.authMeEndpoint}'),
             headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json',
@@ -230,7 +230,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // Check if this user actually has kundalis in database
         try {
           final response = await http.get(
-            Uri.parse('https://astravedam.onrender.com/api/charts?userId=$anonId'),
+            Uri.parse('${AppConstants.baseUrl}${AppConstants.chartsEndpoint}?userId=$anonId')
           );
           
           if (response.statusCode == 200) {

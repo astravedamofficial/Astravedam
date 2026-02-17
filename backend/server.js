@@ -377,7 +377,6 @@ app.get('/api/charts', optionalAuth, async (req, res) => {
       query = {
         $or: [
           { ownerUserId: req.user._id },
-          { userId: req.user._id.toString() } // Also check userId field
         ]
       };
       console.log(`📊 Fetching charts for registered user: ${req.user._id}`);

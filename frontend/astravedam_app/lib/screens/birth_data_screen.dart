@@ -7,6 +7,8 @@ import '../services/identity_service.dart';  // CHANGE FROM user_id_service
 import '../services/auth_service.dart';  // ADD THIS LINE
 import '../services/location_service.dart';
 import 'dart:async';  // For Timer
+import '../services/api_service.dart';
+import '../constants.dart';
 class BirthDataScreen extends StatefulWidget {
   final bool isAdditionalKundali;
   
@@ -598,12 +600,13 @@ Future<void> _calculateChart() async {
     }
     
     // 6️⃣ SEND REQUEST - This part stays the same
-    final response = await http.post(
-      Uri.parse('https://astravedam.onrender.com/api/calculate-chart'),
-      headers: headers,
-      body: json.encode(birthData),
-    );
-    
+    // 6️⃣ SEND REQUEST - Use ApiService
+    print('📤 Sending birth data with coordinates: ${_selectedLocation!.lat}, ${_selectedLocation!.lon}');
+
+    final result = await ApiService.calculateChart(
+      birthData,
+      token: isLoggedIn ? await AuthService.getToken() : null,
+    );    
     print('📥 Backend response status: ${response.statusCode}');
     
     // 7️⃣ HANDLE RESPONSE - This part stays the same

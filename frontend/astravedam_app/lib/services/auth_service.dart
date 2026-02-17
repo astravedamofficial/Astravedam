@@ -4,15 +4,15 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
-
+import '../constants.dart';
 // Web-only imports
 import 'dart:html' as html if (dart.library.io) 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AuthService {
-  static const String _tokenKey = 'auth_jwt_token';
-  static const String _userKey = 'auth_user_data';
-  static const String _storageKey = 'astravedam_auth';
+  // Use constants
+  static const String _tokenKey = AppConstants.tokenKey;
+  static const String _userKey = AppConstants.userKey;
   
   static final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static final SharedPreferences? _prefs = null;
@@ -209,7 +209,7 @@ static Future<void> saveAuthData(String token, Map<String, dynamic> userData) as
     try {
       // This will open Google login in a new window
       // The backend will redirect back to our app with token
-      final backendUrl = 'https://astravedam.onrender.com/api/auth/google';
+      final backendUrl = '${AppConstants.baseUrl}${AppConstants.googleAuthEndpoint}';
       
       // For web, we need to open in new window
       // This is handled by the LoginScreen widget
@@ -228,7 +228,7 @@ static Future<void> saveAuthData(String token, Map<String, dynamic> userData) as
       if (token == null) return false;
       
       final response = await http.get(
-        Uri.parse('https://astravedam.onrender.com/api/auth/me'),
+        Uri.parse('${AppConstants.baseUrl}${AppConstants.authMeEndpoint}'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',

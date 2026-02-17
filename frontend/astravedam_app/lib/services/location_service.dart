@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
+import '../constants.dart';
 class LocationService {
-  static const String _apiKey = '8185187c36e24029853d31ebe39daa14';
+  static const String _apiKey = AppConstants.geoapifyKey;
   static const String _baseUrl = 'https://api.geoapify.com/v1/geocode/autocomplete';
   
   // This function gets location suggestions as user types

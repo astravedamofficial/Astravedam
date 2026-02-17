@@ -5,7 +5,7 @@ import '../services/identity_service.dart';  // For userId
 import 'birth_data_screen.dart';  // ✅ ADD THIS LINE
 import '../services/auth_service.dart';  // ADD THIS
 import 'login_screen.dart';  // ADD THIS LINE
-
+import '../services/api_service.dart';
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> userChart;
   final bool forceRefresh;  // ✅ ADD THIS
@@ -172,60 +172,38 @@ void _showLoginRequiredDialog(BuildContext context, String featureName, int cred
   );
 }
     // ✅ ADD THIS METHOD TO FETCH KUNDALIS
-    Future<List<dynamic>> _fetchUserKundalis(BuildContext context) async {
+  Future<List<dynamic>> _fetchUserKundalis(BuildContext context) async {
     try {
-        final identity = await IdentityService.getIdentity();
-        final userId = identity['id'];
-        final isLoggedIn = identity['type'] == 'registered';
-        
-        print('📊 Fetching kundalis for user: $userId (type: ${isLoggedIn ? "registered" : "anonymous"})');
-        
-        // Build the URL based on login status
-        String url;
-        if (isLoggedIn) {
-        // Logged in user - no need for userId parameter
-        url = 'https://astravedam.onrender.com/api/charts';
-        } else {
-        // Anonymous user - need userId parameter
-        url = 'https://astravedam.onrender.com/api/charts?userId=$userId';
-        }
-        
-        // Prepare headers
-        final headers = <String, String>{
-        'Content-Type': 'application/json',
-        };
-        
-        // Add auth token if logged in
-        if (isLoggedIn) {
-        final token = await AuthService.getToken();
-        if (token != null) {
-            headers['Authorization'] = 'Bearer $token';
-        }
-        }
-        
-        final response = await http.get(
-        Uri.parse(url),
-        headers: headers,
-        );
-        
-        if (response.statusCode == 200) {
-        final result = json.decode(response.body);
-        final List<dynamic> kundalis = result['charts'] ?? [];
-        print('✅ Found ${kundalis.length} kundalis');
-        return kundalis;
-        }
-        return [];
+      final identity = await IdentityService.getIdentity();
+      final userId = identity['id'];
+      final isLoggedIn = identity['type'] == 'registered';
+      final token = identity['token'];
+      
+      print('📊 Fetching kundalis for user: $userId (type: ${isLoggedIn ? "registered" : "anonymous"})');
+      
+      List<dynamic> kundalis;
+      
+      if (isLoggedIn) {
+        // Registered user - use token
+        kundalis = await ApiService.getUserCharts(token: token);
+      } else {
+        // Anonymous user - use userId
+        kundalis = await ApiService.getUserCharts(anonymousId: userId);
+      }
+      
+      print('✅ Found ${kundalis.length} kundalis');
+      return kundalis;
     } catch (e) {
-        print('❌ Error fetching kundalis: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
+      print('❌ Error fetching kundalis: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('Failed to load kundalis: $e'),
-            duration: const Duration(seconds: 3),
+          content: Text('Failed to load kundalis: ${e.toString()}'),
+          duration: const Duration(seconds: 3),
         ),
-        );
-        return [];
+      );
+      return [];
     }
-    }
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1192,21 +1170,21 @@ void _showKundaliDetails(BuildContext context) {
                 const SizedBox(height: 16),
                 
                 // Actions
-                if (kundali['isPrimary'] != true)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        _setAsPrimary(context, kundali);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.amber[600],
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Set as Primary'),
-                    ),
-                  ),
+                // if (kundali['isPrimary'] != true)
+                //   SizedBox(
+                //     width: double.infinity,
+                //     child: ElevatedButton(
+                //       onPressed: () {
+                //         Navigator.of(context).pop();
+                //         _setAsPrimary(context, kundali);
+                //       },
+                //       style: ElevatedButton.styleFrom(
+                //         backgroundColor: Colors.amber[600],
+                //         foregroundColor: Colors.white,
+                //       ),
+                //       child: const Text('Set as Primary'),
+                //     ),
+                //   ),
               ],
             ),
           ),
@@ -1221,28 +1199,7 @@ void _showKundaliDetails(BuildContext context) {
     );
   }
 
-  // ✅ ADD THIS METHOD TO SET AS PRIMARY
-  void _setAsPrimary(BuildContext context, Map<String, dynamic> kundali) {
-    // Note: This requires a new backend endpoint
-    // For now, just show a message
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Set as Primary'),
-          content: const Text('This feature requires backend support. Coming soon!'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
-// Helper method for planet rows
 DataRow _buildPlanetRow(String planetName, Map<String, dynamic>? planetData) {
   return DataRow(
     cells: [
