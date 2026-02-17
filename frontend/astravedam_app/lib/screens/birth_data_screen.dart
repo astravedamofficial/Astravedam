@@ -566,83 +566,64 @@ Future<void> _calculateChart() async {
         ? 'User' 
         : _nameController.text;
     
-    // 4️⃣ NEW DATA - Send location with coordinates!
+    // 4️⃣ Prepare birth data with coordinates
     final birthData = {
       'name': personName,
       'date': _selectedDate!.toIso8601String(),
       'time': '${_selectedTime!.hour}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
-      
-      // NEW: Send the full address from selected suggestion
       'location': _selectedLocation!.address,  
-      
       'userId': isLoggedIn ? null : userId,
       'personName': personName,
-      
-      // 🆕 NEW FIELDS - Coordinates and details from selected location
-      'latitude': _selectedLocation!.lat,        // Example: 19.0760
-      'longitude': _selectedLocation!.lon,       // Example: 72.8777
-      'city': _selectedLocation!.city,           // Example: "Mumbai"
-      'country': _selectedLocation!.country,     // Example: "India"
-      'formattedAddress': _selectedLocation!.address,  // Full address
+      'latitude': _selectedLocation!.lat,
+      'longitude': _selectedLocation!.lon,
+      'city': _selectedLocation!.city,
+      'country': _selectedLocation!.country,
+      'formattedAddress': _selectedLocation!.address,
     };
     
     print('📤 Sending birth data with coordinates: ${_selectedLocation!.lat}, ${_selectedLocation!.lon}');
     
-    // 5️⃣ HEADERS - This part stays the same
-    final headers = {
-      'Content-Type': 'application/json',
-    };
-    if (isLoggedIn) {
-      final token = await AuthService.getToken();
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-    }
-    
-    // 6️⃣ SEND REQUEST - This part stays the same
-    // 6️⃣ SEND REQUEST - Use ApiService
-    print('📤 Sending birth data with coordinates: ${_selectedLocation!.lat}, ${_selectedLocation!.lon}');
-
+    // 5️⃣ SEND REQUEST using ApiService
     final result = await ApiService.calculateChart(
       birthData,
       token: isLoggedIn ? await AuthService.getToken() : null,
-    );    
-    print('📥 Backend response status: ${response.statusCode}');
+    );
     
-    // 7️⃣ HANDLE RESPONSE - This part stays the same
-    if (response.statusCode == 200) {
-      final result = json.decode(response.body);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.isAdditionalKundali 
-                ? '✅ Kundali added successfully!'
-                : '✅ Your birth chart is ready!',
-          ),
-          backgroundColor: Colors.green,
+    print('📥 Backend response received successfully');
+    
+    // 6️⃣ HANDLE SUCCESS RESPONSE
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          widget.isAdditionalKundali 
+              ? '✅ Kundali added successfully!'
+              : '✅ Your birth chart is ready!',
+        ),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+    if (widget.isAdditionalKundali) {
+      // Return to previous screen with success
+      Navigator.pop(context, true);
+    } else {
+      // Go to dashboard with the chart data
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DashboardScreen(userChart: result),
         ),
       );
-      
-      if (widget.isAdditionalKundali) {
-        Navigator.pop(context, true);
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DashboardScreen(userChart: result),
-          ),
-        );
-      }
-    } else {
-      throw Exception('Backend error: ${response.statusCode}');
     }
+    
   } catch (e) {
+    // 7️⃣ HANDLE ERROR
     print('❌ Error: $e');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Connection Error: $e'),
+        content: Text('Error: ${e.toString()}'),
         duration: const Duration(seconds: 5),
+        backgroundColor: Colors.red,
       ),
     );
   } finally {

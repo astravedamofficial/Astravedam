@@ -19,6 +19,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // ✅ ADD THIS VARIABLE
   int _refreshCounter = 0;
+  String? _selectedKundaliId;  // 👈 ADD THIS LINE
+  Map<String, dynamic>? _selectedKundali;  // 👈 ADD THIS LINE
   
    // ✅ ADD THIS initState METHOD
   @override
@@ -192,6 +194,12 @@ void _showLoginRequiredDialog(BuildContext context, String featureName, int cred
       }
       
       print('✅ Found ${kundalis.length} kundalis');
+      // 👇 NEW CODE: Auto-select first kundali if available and none selected
+      if (kundalis.isNotEmpty && _selectedKundaliId == null) {
+        _selectedKundaliId = kundalis[0]['_id'].toString();
+        _selectedKundali = kundalis[0];
+        print('✅ Auto-selected first kundali: ${_selectedKundaliId}');
+      }
       return kundalis;
     } catch (e) {
       print('❌ Error fetching kundalis: $e');
@@ -203,6 +211,34 @@ void _showLoginRequiredDialog(BuildContext context, String featureName, int cred
       );
       return [];
     }
+  }
+  Widget _buildSelectedKundaliBanner() {
+    if (_selectedKundali == null) return const SizedBox();
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.deepPurple[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.deepPurple[200]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, color: Colors.deepPurple[600], size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Selected: ${_selectedKundali!['personName']}',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.deepPurple[800],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
   @override
   Widget build(BuildContext context) {
@@ -316,6 +352,9 @@ void _showLoginRequiredDialog(BuildContext context, String featureName, int cred
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildWelcomeSection(),
+              const SizedBox(height: 16),
+              
+              _buildSelectedKundaliBanner(),  // 👈 ADD THIS LINE
               const SizedBox(height: 16),
         
              // ✅ SECTION 1: KUNDALI LIST
@@ -581,74 +620,115 @@ Widget _buildKundaliListSection(BuildContext context) {
             const SizedBox(height: 12),
             
             // List of kundalis
+            // List of kundalis
             ...kundalis.map((kundali) {
-              final isPrimary = kundali['isPrimary'] == true;
+              final kundaliId = kundali['_id'].toString();
+              final isSelected = _selectedKundaliId == kundaliId;
               final personName = kundali['personName'] ?? kundali['name'] ?? 'Unknown';
               final location = kundali['location'] ?? 'Unknown location';
               final formattedDate = _formatKundaliDate(kundali['birthDate']);
               
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                elevation: 1,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.deepPurple[50],
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.person,
-                          size: 16,
-                          color: Colors.deepPurple[600],
-                        ),
-                      ),
-                      
-                      const SizedBox(width: 12),
-                      
-                      // Kundali Details
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              personName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
+                elevation: isSelected ? 4 : 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: isSelected 
+                      ? BorderSide(color: Colors.deepPurple, width: 2)
+                      : BorderSide.none,
+                ),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedKundaliId = kundaliId;
+                      _selectedKundali = kundali;
+                    });
+                    print('✅ Selected kundali: $personName');
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        // Selection indicator (circle that fills when selected)
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? Colors.deepPurple : Colors.grey[400]!,
+                              width: 2,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$location • $formattedDate',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[600],
+                            color: isSelected ? Colors.deepPurple : Colors.transparent,
+                          ),
+                          child: isSelected
+                              ? const Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: Colors.white,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        
+                        // Person icon
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.deepPurple[50] : Colors.grey[100],
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            size: 16,
+                            color: isSelected ? Colors.deepPurple[600] : Colors.grey[600],
+                          ),
+                        ),
+                        
+                        const SizedBox(width: 12),
+                        
+                        // Kundali Details (name, location, date)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                personName,
+                                style: TextStyle(
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                  fontSize: 14,
+                                  color: isSelected ? Colors.deepPurple : Colors.black87,
+                                ),
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                              const SizedBox(height: 2),
+                              Text(
+                                '$location • $formattedDate',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[600],
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      
-                      // Actions
-                      IconButton(
-                        onPressed: () {
-                          _viewKundaliDetails(context, kundali);
-                        },
-                        icon: Icon(
-                          Icons.visibility,
-                          size: 18,
-                          color: Colors.deepPurple[600],
+                        
+                        // View details button (eye icon)
+                        IconButton(
+                          onPressed: () {
+                            _viewKundaliDetails(context, kundali);
+                          },
+                          icon: Icon(
+                            Icons.visibility,
+                            size: 18,
+                            color: isSelected ? Colors.deepPurple[600] : Colors.grey[600],
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -697,7 +777,16 @@ Widget _buildKundaliListSection(BuildContext context) {
               'Free',
               Colors.green,
               () {
-                _showKundaliDetails(context);
+                if (_selectedKundali != null) {
+                  _viewKundaliDetails(context, _selectedKundali!);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please select a kundali first'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
               },
             ),
             _buildFeatureCard(
@@ -707,6 +796,17 @@ Widget _buildKundaliListSection(BuildContext context) {
               '1 Credit',
               Colors.purple,
               () async {
+                // First check if a kundali is selected
+                if (_selectedKundali == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please select a kundali first'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+                
                 // Check if user is logged in
                 final isLoggedIn = await AuthService.isLoggedIn();
                 
@@ -716,8 +816,8 @@ Widget _buildKundaliListSection(BuildContext context) {
                   // User is logged in, check credits
                   final credits = await IdentityService.getCreditsBalance();
                   if (credits >= 1) {
-                    // TODO: Open Ask Gods feature
-                    _showComingSoon(context, 'Ask Gods');
+                    // Show which kundali it's for
+                    _showComingSoon(context, 'Ask Gods for ${_selectedKundali!['personName']}');
                   } else {
                     _showCreditRequiredDialog(context, 'Ask Gods', 1);
                   }
@@ -1155,17 +1255,6 @@ void _showKundaliDetails(BuildContext context) {
                   subtitle: Text(kundali['location'] ?? 'Unknown location'),
                 ),
                 
-                // Status
-                ListTile(
-                  leading: const Icon(Icons.star, size: 20),
-                  title: const Text('Status'),
-                  subtitle: Text(
-                    kundali['isPrimary'] == true ? 'Primary Kundali' : 'Secondary Kundali',
-                    style: TextStyle(
-                      color: kundali['isPrimary'] == true ? Colors.amber[700] : Colors.grey[600],
-                    ),
-                  ),
-                ),
                 
                 const SizedBox(height: 16),
                 
